@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block title %}Solicitud #{{ solicitud.id_solicitud }}{% endblock %}
+
+{% block content %}
+
+{% set is_closed = solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado'] %}
+
+{% set estado_css = {
+    'Pendiente':  'status-pendiente',
+    'En Proceso': 'status-en-proceso',
+    'Resuelto':   'status-resuelto',
+    'Cancelado':  'status-cancelado'
+} %}
+
+<div class="container-fluid px-4">
+
+    {# ===== HEADER ===== #}
+    <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <a href="{{ url_for('tecnico.dashboard') }}" class="btn-outline-custom">
+                <i class="bi bi-arrow-left"></i>
+                Volver
+            </a>
+            <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h1 style="font-size:1.5rem;margin:0;">
+                        Solicitud <span class="text-gradient">#{{ solicitud.id_solicitud }}</span>
+                        &mdash; {{ solicitud.tipo_soporte }}
+                    </h1>
+                    <span class="badge-status {{ estado_css.get(solicitud.estado.nombre_estado, 'status-pendiente') }}">
+                        {{ solicitud.estado.nombre_estado }}
+                    </span>
+                </div>
+                <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.85rem;">
+                    <i class="bi bi-person me-1"></i>{{ solicitud.cliente.nombre_completo }}
+                </p>
+            </div>
+        </div>
+
+        {# Informe button — only when not closed #}
+        {% if not is_closed %}
+        <a href="{{ url_for('tecnico.crear_informe', solicitud_id=solicitud.id_solicitud) }}"
+           class="btn-primary-custom">
+            <i class="bi bi-file-earmark-medical-fill"></i>
+            Crear Informe y Cerrar Ticket
+        </a>
+        {% endif %}
+    </div>
+
+    {# ===== TWO-COLUMN LAYOUT ===== #}
+    <div class="row g-4">
+
+        {# ========== LEFT — DETAILS ========== #}
+        <div class="col-lg-5">
+
+            {# Details card #}
+            <div class="section-card mb-4">
+                <div class="section-card-header">
+                    <span class="fw-700" style="color:var(--text-primary);">
+                        <i class="bi bi-info-circle-fill me-2" style="color:var(--primary-light);"></i>
+                        Detalles de la Solicitud
+                    </span>
+                </div>
+                <div class="section-card-body" style="padding:0 24px;">
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-tag-fill"></i> Tipo de soporte</div>
+                        <div class="detail-value">
+                            <span class="badge-type">{{ solicitud.tipo_soporte }}</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Estado</div>
+                        <div class="detail-value">
+                            <span class="badge-status {{ estado_css.get(solicitud.estado.nombre_estado, 'status-pendiente') }}">
+                                {{ solicitud.estado.nombre_estado }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-calendar3"></i> Fecha de atención</div>
+                        <div class="detail-value">
+                            {% if solicitud.fecha_atencion %}
+                                {{ solicitud.fecha_atencion.strftime('%A, %d de %B de %Y') | capitalize }}
+                            {% else %}
+                                <span style="color:var(--text-muted);">No asignada</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-clock"></i> Horario</div>
+                        <div class="detail-value">
+                            {% if solicitud.horario %}
+                                {{ solicitud.horario }}
+                            {% else %}
+                                <span style="color:var(--text-muted);">No definido</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="detail-row" style="align-items:flex-start;">
+                        <div class="detail-label" style="padding-top:2px;"><i class="bi bi-card-text"></i> Descripción</div>
+                        <div class="detail-value" style="line-height:1.65;">
+                            {{ solicitud.descripcion or '—' }}
+                        </div>
+                    </div>
+
+                    {% if solicitud.recursos %}
+                    <div class="detail-row" style="align-items:flex-start;">
+                        <div class="detail-label" style="padding-top:2px;"><i class="bi bi-cpu"></i> Recursos</div>
+                        <div class="detail-value">{{ solicitud.recursos }}</div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            {# Client info card #}
+            <div class="section-card mb-4">
+                <div class="section-card-header">
+                    <span class="fw-700" style="color:var(--text-primary);">
+                        <i class="bi bi-person-vcard-fill me-2" style="color:var(--secondary);"></i>
+                        Información del Cliente
+                    </span>
+                </div>
+                <div class="section-card-body" style="padding:0 24px;">
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-person"></i> Nombre</div>
+                        <div class="detail-value fw-500" style="color:var(--text-primary);">
+                            {{ solicitud.cliente.nombre_completo }}
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-telephone"></i> Teléfono</div>
+                        <div class="detail-value">
+                            {% if solicitud.cliente.telefono %}
+                                <a href="tel:{{ solicitud.cliente.telefono }}"
+                                   style="color:var(--secondary);text-decoration:none;">
+                                    {{ solicitud.cliente.telefono }}
+                                </a>
+                            {% else %}
+                                <span style="color:var(--text-muted);">No registrado</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-building"></i> Sector / Dpto.</div>
+                        <div class="detail-value">{{ solicitud.cliente.sector or '—' }}</div>
+                    </div>
+
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-envelope"></i> Correo</div>
+                        <div class="detail-value">
+                            {% if solicitud.cliente.correo %}
+                                <a href="mailto:{{ solicitud.cliente.correo }}"
+                                   style="color:var(--secondary);text-decoration:none;font-size:0.85rem;">
+                                    {{ solicitud.cliente.correo }}
+                                </a>
+                            {% else %}
+                                <span style="color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {# Report section — only if reporte exists #}
+            {% if solicitud.reporte %}
+            <div class="section-card">
+                <div class="section-card-header">
+                    <span class="fw-700" style="color:var(--text-primary);">
+                        <i class="bi bi-file-earmark-check-fill me-2" style="color:var(--success);"></i>
+                        Informe Técnico
+                    </span>
+                    <span class="badge-status status-resuelto" style="font-size:0.7rem;">Enviado</span>
+                </div>
+                <div class="section-card-body">
+
+                    <p style="color:var(--text-secondary);font-size:0.875rem;line-height:1.65;margin-bottom:16px;">
+                        {{ solicitud.reporte.descripcion }}
+                    </p>
+
+                    {% if solicitud.reporte.imagen1 or solicitud.reporte.imagen2 %}
+                    <div class="evidence-grid">
+                        {% if solicitud.reporte.imagen1 %}
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.72rem;font-weight:600;text-transform:uppercase;
+                                        letter-spacing:0.05em;margin-bottom:6px;">
+                                <i class="bi bi-image me-1"></i>Equipo recibido
+                            </div>
+                            <img src="{{ url_for('static', filename='uploads/' ~ solicitud.reporte.imagen1) }}"
+                                 alt="Evidencia 1 — cómo se recibió el equipo"
+                                 class="evidence-img"
+                                 onclick="window.open(this.src,'_blank')">
+                        </div>
+                        {% endif %}
+                        {% if solicitud.reporte.imagen2 %}
+                        <div>
+                            <div style="color:var(--text-muted);font-size:0.72rem;font-weight:600;text-transform:uppercase;
+                                        letter-spacing:0.05em;margin-bottom:6px;">
+                                <i class="bi bi-image me-1"></i>Equipo entregado
+                            </div>
+                            <img src="{{ url_for('static', filename='uploads/' ~ solicitud.reporte.imagen2) }}"
+                                 alt="Evidencia 2 — cómo se entregó el equipo"
+                                 class="evidence-img"
+                                 onclick="window.open(this.src,'_blank')">
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        {# END LEFT #}
+
+        {# ========== RIGHT — CHAT ========== #}
+        <div class="col-lg-7">
+            <div class="chat-container" style="height: calc(100vh - 220px); min-height:480px;">
+
+                {# Chat header #}
+                <div class="chat-header">
+                    <div class="stat-icon cyan" style="width:36px;height:36px;font-size:1rem;border-radius:10px;flex-shrink:0;">
+                        <i class="bi bi-chat-dots-fill"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-600" style="color:var(--text-primary);font-size:0.9rem;">Chat con el Cliente</div>
+                        <div style="color:var(--text-muted);font-size:0.75rem;">
+                            {{ solicitud.cliente.nombre_completo }}
+                        </div>
+                    </div>
+                    {% if is_closed %}
+                    <span class="badge-status {{ estado_css.get(solicitud.estado.nombre_estado, 'status-cancelado') }}"
+                          style="font-size:0.7rem;">
+                        <i class="bi bi-lock-fill me-1"></i>Cerrado
+                    </span>
+                    {% else %}
+                    <span class="badge-status status-en-proceso" style="font-size:0.7rem;">
+                        <i class="bi bi-broadcast me-1"></i>En línea
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# Messages area #}
+                <div class="chat-messages" id="chatMessages">
+                    {% if mensajes %}
+                        {% for msg in mensajes %}
+                        {% set is_mine = msg.id_remitente == current_user.id_user %}
+                        <div class="d-flex flex-column {{ 'align-items-end' if is_mine else 'align-items-start' }}">
+                            {% if not is_mine %}
+                            <span class="msg-meta mb-1">
+                                {{ msg.remitente.nombre_completo if msg.remitente else 'Desconocido' }}
+                            </span>
+                            {% endif %}
+                            <div class="msg-bubble {{ 'msg-mine' if is_mine else 'msg-other' }}">
+                                {{ msg.contenido }}
+                                {% if msg.archivo_adjunto %}
+                                <br>
+                                <a href="/static/{{ msg.archivo_adjunto }}" target="_blank"
+                                   class="text-white-50 small">
+                                    <i class="bi bi-paperclip"></i> Adjunto
+                                </a>
+                                {% endif %}
+                            </div>
+                            <span class="msg-meta mt-1">
+                                {{ msg.fecha_envio.strftime('%d/%m %H:%M') if msg.fecha_envio else '' }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state" style="padding:40px 20px;">
+                        <div class="empty-state-icon" style="font-size:2.5rem;">
+                            <i class="bi bi-chat-square-dots"></i>
+                        </div>
+                        <h3 style="font-size:1rem;">Sin mensajes aún</h3>
+                        <p>Inicia la conversación con el cliente.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# Input area #}
+                {% if not is_closed %}
+                <div class="chat-input-area">
+                    <textarea id="chatInput"
+                              class="chat-input"
+                              rows="1"
+                              placeholder="Escribe un mensaje… (Enter para enviar)"
+                              maxlength="2000"></textarea>
+                    <button id="sendBtn" class="chat-send-btn" title="Enviar mensaje">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+                {% else %}
+                <div class="chat-input-area" style="background:rgba(0,0,0,0.2);">
+                    <div class="flex-grow-1 text-center" style="color:var(--text-muted);font-size:0.82rem;padding:6px 0;">
+                        <i class="bi bi-lock-fill me-1"></i>
+                        El chat está cerrado porque la solicitud está {{ solicitud.estado.nombre_estado | lower }}.
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {# END RIGHT #}
+
+    </div>
+    {# END ROW #}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script>
+    const chat = new SastChat(
+        {{ solicitud.id_solicitud }},
+        {{ current_user.id_user }},
+        {{ 'true' if solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado'] else 'false' }}
+    );
+</script>
+{% endblock %}

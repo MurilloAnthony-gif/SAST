@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% block title %}Solicitud #{{ solicitud.id_solicitud }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set is_closed = solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado'] %}
+{% set estado_css = {
+    'Pendiente': 'status-pendiente',
+    'En proceso': 'status-en-proceso',
+    'Resuelto': 'status-resuelto',
+    'Cancelado': 'status-cancelado'
+}.get(solicitud.estado.nombre_estado, 'status-pendiente') %}
+
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="page-header d-flex align-items-center gap-3 flex-wrap mb-4">
+        <a href="{{ url_for('solicitante.dashboard') }}" class="btn-outline-custom">
+            <i class="bi bi-arrow-left"></i> Mis Solicitudes
+        </a>
+        <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <h1 style="font-size:1.4rem;margin:0;">
+                    Solicitud <span class="text-gradient">#{{ solicitud.id_solicitud }}</span>
+                </h1>
+                <span class="badge-status {{ estado_css }}">{{ solicitud.estado.nombre_estado }}</span>
+            </div>
+            <p style="margin:0;color:var(--text-muted);font-size:0.85rem;">
+                {{ solicitud.tipo_soporte.nombre_soporte }} ·
+                Creada el {{ solicitud.fecha_creacion.strftime('%d/%m/%Y') }}
+            </p>
+        </div>
+
+        {% if solicitud.estado.nombre_estado == 'Resuelto' and not solicitud.calificacion %}
+        <a href="{{ url_for('solicitante.calificar', solicitud_id=solicitud.id_solicitud) }}"
+           class="btn-primary-custom" id="btnCalificar">
+            <i class="bi bi-star-fill"></i> Calificar Servicio
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        <!-- LEFT: Detalles + Reporte -->
+        <div class="col-lg-5 d-flex flex-column gap-4">
+
+            <!-- Detalles de la Solicitud -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <span style="font-weight:700;"><i class="bi bi-info-circle me-2" style="color:var(--primary-light);"></i>Detalles</span>
+                </div>
+                <div class="section-card-body" style="padding:0 24px;">
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-wrench"></i> Tipo</div>
+                        <div class="detail-value">{{ solicitud.tipo_soporte.nombre_soporte }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-calendar3"></i> Fecha Atención</div>
+                        <div class="detail-value">{{ solicitud.fecha_atencion.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-clock"></i> Horario</div>
+                        <div class="detail-value">{{ solicitud.horario_solicitado }}</div>
+                    </div>
+                    {% if solicitud.id_tecnico %}
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-person-gear"></i> Técnico</div>
+                        <div class="detail-value">{{ solicitud.tecnico.nombre_completo }}</div>
+                    </div>
+                    {% else %}
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-person-gear"></i> Técnico</div>
+                        <div class="detail-value" style="color:var(--text-muted);font-style:italic;">Pendiente asignación</div>
+                    </div>
+                    {% endif %}
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-chat-text"></i> Descripción</div>
+                        <div class="detail-value">{{ solicitud.descripcion }}</div>
+                    </div>
+                    {% if solicitud.recursos_adicionales %}
+                    <div class="detail-row">
+                        <div class="detail-label"><i class="bi bi-paperclip"></i> Recursos</div>
+                        <div class="detail-value">{{ solicitud.recursos_adicionales }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Botón cancelar -->
+                {% if solicitud.estado.nombre_estado == 'Pendiente' %}
+                <div style="padding:16px 24px;border-top:1px solid var(--border);">
+                    <form method="POST" action="{{ url_for('solicitante.cancelar_solicitud', solicitud_id=solicitud.id_solicitud) }}"
+                          onsubmit="return confirm('¿Estás seguro de que deseas cancelar esta solicitud?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-danger-custom w-100 justify-content-center" id="btnCancelar">
+                            <i class="bi bi-x-circle"></i> Cancelar Solicitud
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Calificación dada -->
+            {% if solicitud.calificacion %}
+            <div class="section-card">
+                <div class="section-card-header">
+                    <span style="font-weight:700;"><i class="bi bi-star-fill me-2" style="color:var(--warning);"></i>Tu Calificación</span>
+                </div>
+                <div class="section-card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        {% for i in range(1, 6) %}
+                            {% if i <= solicitud.calificacion.puntuacion %}
+                            <i class="bi bi-star-fill" style="color:var(--warning);font-size:1.3rem;"></i>
+                            {% else %}
+                            <i class="bi bi-star" style="color:var(--text-muted);font-size:1.3rem;"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span style="font-weight:700;color:var(--text-primary);margin-left:6px;">
+                            {{ solicitud.calificacion.puntuacion }}/5
+                        </span>
+                    </div>
+                    {% if solicitud.calificacion.comentario %}
+                    <p style="color:var(--text-secondary);font-size:0.875rem;font-style:italic;margin:0;">
+                        "{{ solicitud.calificacion.comentario }}"
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Reporte del técnico -->
+            {% if solicitud.reporte %}
+            <div class="section-card">
+                <div class="section-card-header">
+                    <span style="font-weight:700;"><i class="bi bi-file-text me-2" style="color:var(--success);"></i>Informe Técnico</span>
+                    <span style="font-size:0.75rem;color:var(--text-muted);">
+                        {{ solicitud.reporte.fecha_creacion.strftime('%d/%m/%Y') }}
+                    </span>
+                </div>
+                <div class="section-card-body">
+                    <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:16px;">
+                        {{ solicitud.reporte.descripcion_trabajo }}
+                    </p>
+                    <div class="evidence-grid">
+                        <div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">
+                                ESTADO INICIAL
+                            </div>
+                            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_1) }}"
+                                 class="evidence-img" alt="Estado inicial del equipo"
+                                 onclick="window.open(this.src,'_blank')">
+                        </div>
+                        <div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">
+                                ESTADO ENTREGADO
+                            </div>
+                            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_2) }}"
+                                 class="evidence-img" alt="Estado al entregar el equipo"
+                                 onclick="window.open(this.src,'_blank')">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- RIGHT: Chat -->
+        <div class="col-lg-7">
+            <div class="chat-container" style="height:calc(100vh - 200px);min-height:400px;">
+                <div class="chat-header">
+                    <div style="width:36px;height:36px;background:rgba(99,102,241,0.15);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;color:var(--primary-light);">
+                        <i class="bi bi-chat-dots-fill"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700;font-size:0.9rem;color:var(--text-primary);">
+                            Chat con el Técnico
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);">
+                            {% if solicitud.id_tecnico %}
+                                {{ solicitud.tecnico.nombre_completo }}
+                            {% else %}
+                                Técnico aún no asignado
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if is_closed %}
+                    <span class="badge-status status-{{ solicitud.estado.nombre_estado|lower|replace(' ','-') }} ms-auto">
+                        Ticket {{ solicitud.estado.nombre_estado }}
+                    </span>
+                    {% else %}
+                    <span style="margin-left:auto;width:8px;height:8px;background:var(--success);border-radius:50%;
+                                 box-shadow:0 0 8px var(--success);animation:pulse-dot 2s infinite;"></span>
+                    {% endif %}
+                </div>
+
+                <div id="chatMessages" class="chat-messages">
+                    {% if not mensajes %}
+                    <div class="empty-state" style="padding:30px 20px;">
+                        <div style="font-size:2rem;opacity:0.3;"><i class="bi bi-chat-square-dots"></i></div>
+                        <p style="margin:8px 0 0;font-size:0.8rem;">Aún no hay mensajes. ¡Inicia la conversación!</p>
+                    </div>
+                    {% endif %}
+
+                    {% for msg in mensajes %}
+                    {% set is_mine = msg.id_usuario_remitente == current_user.id_user %}
+                    <div class="d-flex flex-column {{ 'align-items-end' if is_mine else 'align-items-start' }}">
+                        {% if not is_mine %}
+                        <span class="msg-meta mb-1">{{ msg.remitente.nombre_completo }}</span>
+                        {% endif %}
+                        <div class="msg-bubble {{ 'msg-mine' if is_mine else 'msg-other' }}">
+                            {{ msg.contenido }}
+                        </div>
+                        <span class="msg-meta mt-1">{{ msg.fecha_envio.strftime('%d/%m %H:%M') }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if is_closed %}
+                <div class="chat-input-area" style="opacity:0.5;">
+                    <input type="text" class="chat-input" placeholder="Ticket cerrado — no se pueden enviar mensajes" disabled>
+                    <button class="chat-send-btn" disabled><i class="bi bi-send-fill"></i></button>
+                </div>
+                {% elif not solicitud.id_tecnico %}
+                <div class="chat-input-area" style="opacity:0.6;">
+                    <input type="text" class="chat-input" placeholder="Esperando asignación de técnico..." disabled>
+                    <button class="chat-send-btn" disabled><i class="bi bi-send-fill"></i></button>
+                </div>
+                {% else %}
+                <div class="chat-input-area">
+                    <textarea id="chatInput" class="chat-input" placeholder="Escribe un mensaje..." rows="1"></textarea>
+                    <button id="sendBtn" class="chat-send-btn"><i class="bi bi-send-fill"></i></button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script>
+{% if not is_closed and solicitud.id_tecnico %}
+const chat = new SastChat({{ solicitud.id_solicitud }}, {{ current_user.id_user }}, false);
+{% endif %}
+</script>
+{% endblock %}

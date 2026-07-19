@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+{% block title %}Crear Informe — Solicitud #{{ solicitud.id_solicitud }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:780px;">
+
+    {# ===== BACK + HEADER ===== #}
+    <div class="page-header">
+        <div class="mb-3">
+            <a href="{{ url_for('tecnico.ver_solicitud', solicitud_id=solicitud.id_solicitud) }}"
+               class="btn-outline-custom">
+                <i class="bi bi-arrow-left"></i>
+                Volver a la Solicitud
+            </a>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon purple" style="width:52px;height:52px;font-size:1.3rem;border-radius:14px;flex-shrink:0;">
+                <i class="bi bi-file-earmark-medical-fill"></i>
+            </div>
+            <div>
+                <h1>Crear Informe Técnico</h1>
+                <p>
+                    Solicitud
+                    <span class="text-gradient fw-700">#{{ solicitud.id_solicitud }}</span>
+                    &mdash; {{ solicitud.tipo_soporte }}
+                    &mdash; <span style="color:var(--text-muted);">{{ solicitud.cliente.nombre_completo }}</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# ===== WARNING BANNER ===== #}
+    <div class="alert-notification mb-4" id="warningBanner">
+        <i class="bi bi-exclamation-triangle-fill"
+           style="color:var(--warning);font-size:1.3rem;flex-shrink:0;"></i>
+        <div>
+            <div class="fw-700" style="color:#fcd34d;font-size:0.9rem;">Ambas imágenes son obligatorias</div>
+            <div style="color:var(--text-secondary);font-size:0.82rem;margin-top:2px;">
+                Debes subir las dos imágenes de evidencia para poder cerrar el ticket.
+                El formulario no se enviará hasta que ambas estén seleccionadas.
+            </div>
+        </div>
+    </div>
+
+    {# ===== FORM ===== #}
+    <form method="POST"
+          action="{{ url_for('tecnico.crear_informe', solicitud_id=solicitud.id_solicitud) }}"
+          enctype="multipart/form-data"
+          id="informeForm"
+          novalidate>
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="section-card">
+            <div class="section-card-body" style="padding:0;">
+
+                {# ── STEP 1: Descripción ── #}
+                <div class="report-step">
+                    <div class="step-number flex-shrink-0">1</div>
+                    <div class="flex-grow-1">
+                        <label class="form-label" for="descripcion_trabajo">
+                            Descripción del trabajo realizado
+                        </label>
+                        <textarea id="descripcion_trabajo"
+                                  name="descripcion_trabajo"
+                                  class="form-control"
+                                  rows="5"
+                                  placeholder="Detalla el diagnóstico, los pasos realizados, los componentes revisados o reemplazados y el resultado final…"
+                                  required
+                                  minlength="20">{{ request.form.get('descripcion_trabajo', '') }}</textarea>
+                        <div class="mt-1" style="color:var(--text-muted);font-size:0.75rem;">
+                            Mínimo 20 caracteres. Sé preciso y completo.
+                        </div>
+                    </div>
+                </div>
+
+                {# ── STEP 2: Imagen 1 ── #}
+                <div class="report-step">
+                    <div class="step-number flex-shrink-0">2</div>
+                    <div class="flex-grow-1">
+                        <label class="form-label" for="imagen_evidencia_1">
+                            Evidencia 1 &mdash; Cómo recibió el equipo
+                        </label>
+                        <div class="file-upload-area" id="uploadArea1">
+                            <input type="file"
+                                   name="imagen_evidencia_1"
+                                   id="imagen_evidencia_1"
+                                   accept="image/*"
+                                   required
+                                   onchange="handleFileSelect(this, 'preview1', 'uploadArea1', 'label1')">
+                            <div id="label1">
+                                <div class="file-upload-icon"><i class="bi bi-camera-fill"></i></div>
+                                <div class="file-upload-text">Haz clic o arrastra una imagen aquí</div>
+                                <div class="file-upload-hint">JPG, PNG, WEBP — máx. 5 MB</div>
+                            </div>
+                            <img id="preview1"
+                                 class="file-preview"
+                                 src="#"
+                                 alt="Vista previa imagen 1"
+                                 style="display:none;">
+                        </div>
+                        <div id="error1"
+                             style="color:#fca5a5;font-size:0.78rem;margin-top:6px;display:none;">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            Esta imagen es obligatoria.
+                        </div>
+                    </div>
+                </div>
+
+                {# ── STEP 3: Imagen 2 ── #}
+                <div class="report-step">
+                    <div class="step-number flex-shrink-0">3</div>
+                    <div class="flex-grow-1">
+                        <label class="form-label" for="imagen_evidencia_2">
+                            Evidencia 2 &mdash; Cómo entregó el equipo
+                        </label>
+                        <div class="file-upload-area" id="uploadArea2">
+                            <input type="file"
+                                   name="imagen_evidencia_2"
+                                   id="imagen_evidencia_2"
+                                   accept="image/*"
+                                   required
+                                   onchange="handleFileSelect(this, 'preview2', 'uploadArea2', 'label2')">
+                            <div id="label2">
+                                <div class="file-upload-icon"><i class="bi bi-camera-fill"></i></div>
+                                <div class="file-upload-text">Haz clic o arrastra una imagen aquí</div>
+                                <div class="file-upload-hint">JPG, PNG, WEBP — máx. 5 MB</div>
+                            </div>
+                            <img id="preview2"
+                                 class="file-preview"
+                                 src="#"
+                                 alt="Vista previa imagen 2"
+                                 style="display:none;">
+                        </div>
+                        <div id="error2"
+                             style="color:#fca5a5;font-size:0.78rem;margin-top:6px;display:none;">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            Esta imagen es obligatoria.
+                        </div>
+                    </div>
+                </div>
+
+            </div>{# /section-card-body #}
+        </div>{# /section-card #}
+
+        {# ── Progress indicator ── #}
+        <div id="progressIndicator"
+             class="d-flex align-items-center gap-3 mt-3"
+             style="font-size:0.82rem;color:var(--text-muted);">
+            <span id="progImg1" style="display:flex;align-items:center;gap:5px;">
+                <i class="bi bi-circle" style="color:var(--text-muted);"></i> Imagen 1
+            </span>
+            <span id="progImg2" style="display:flex;align-items:center;gap:5px;">
+                <i class="bi bi-circle" style="color:var(--text-muted);"></i> Imagen 2
+            </span>
+        </div>
+
+        {# ── Submit ── #}
+        <div class="d-flex align-items-center justify-content-between gap-3 mt-4 flex-wrap">
+            <a href="{{ url_for('tecnico.ver_solicitud', solicitud_id=solicitud.id_solicitud) }}"
+               class="btn-outline-custom">
+                <i class="bi bi-x-lg"></i> Cancelar
+            </a>
+            <button type="submit" class="btn-primary-custom" id="submitBtn" disabled>
+                <i class="bi bi-send-check-fill"></i>
+                Enviar Informe y Cerrar Ticket
+            </button>
+        </div>
+
+        {# Submit locked hint #}
+        <div id="submitHint"
+             class="text-center mt-2"
+             style="color:var(--text-muted);font-size:0.78rem;">
+            <i class="bi bi-lock me-1"></i>
+            El botón se habilitará cuando completes los 3 pasos.
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ========================================================
+   Informe form — client-side validation & image previews
+   ======================================================== */
+
+const img1Loaded = { ok: false };
+const img2Loaded = { ok: false };
+
+function handleFileSelect(input, previewId, areaId, labelId) {
+    const file     = input.files[0];
+    const preview  = document.getElementById(previewId);
+    const area     = document.getElementById(areaId);
+    const label    = document.getElementById(labelId);
+    const isImg1   = (previewId === 'preview1');
+    const errorEl  = document.getElementById(isImg1 ? 'error1' : 'error2');
+    const loader   = isImg1 ? img1Loaded : img2Loaded;
+
+    if (!file) {
+        loader.ok = false;
+        preview.style.display = 'none';
+        preview.src = '#';
+        area.classList.remove('has-file');
+        label.style.display = 'block';
+        updateProgress();
+        return;
+    }
+
+    // File type check
+    if (!file.type.startsWith('image/')) {
+        errorEl.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>El archivo debe ser una imagen (JPG, PNG, WEBP).';
+        errorEl.style.display = 'block';
+        input.value = '';
+        loader.ok = false;
+        updateProgress();
+        return;
+    }
+
+    // Size check — 5 MB max
+    if (file.size > 5 * 1024 * 1024) {
+        errorEl.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>La imagen no debe superar los 5 MB.';
+        errorEl.style.display = 'block';
+        input.value = '';
+        loader.ok = false;
+        updateProgress();
+        return;
+    }
+
+    errorEl.style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        label.style.display = 'none';
+        area.classList.add('has-file');
+        loader.ok = true;
+        updateProgress();
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateProgress() {
+    const p1  = document.getElementById('progImg1');
+    const p2  = document.getElementById('progImg2');
+    const btn = document.getElementById('submitBtn');
+    const hint = document.getElementById('submitHint');
+
+    const setDone = (el, done) => {
+        el.innerHTML = done
+            ? `<i class="bi bi-check-circle-fill" style="color:var(--success);"></i> ${el.textContent.trim().split(' ').slice(1).join(' ') || (el === p1 ? 'Imagen 1' : 'Imagen 2')}`
+            : `<i class="bi bi-circle" style="color:var(--text-muted);"></i> ${el.textContent.trim().split(' ').slice(1).join(' ') || (el === p1 ? 'Imagen 1' : 'Imagen 2')}`;
+    };
+
+    // Re-set labels cleanly
+    p1.innerHTML = img1Loaded.ok
+        ? '<i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Imagen 1 ✓'
+        : '<i class="bi bi-circle" style="color:var(--text-muted);"></i> Imagen 1';
+    p2.innerHTML = img2Loaded.ok
+        ? '<i class="bi bi-check-circle-fill" style="color:var(--success);"></i> Imagen 2 ✓'
+        : '<i class="bi bi-circle" style="color:var(--text-muted);"></i> Imagen 2';
+
+    const allDone = img1Loaded.ok && img2Loaded.ok;
+    btn.disabled = !allDone;
+
+    if (allDone) {
+        hint.innerHTML = '<i class="bi bi-unlock-fill me-1" style="color:var(--success);"></i>Todo listo. Puedes enviar el informe.';
+        hint.style.color = 'var(--success)';
+    } else {
+        hint.innerHTML = '<i class="bi bi-lock me-1"></i>El botón se habilitará cuando completes los 3 pasos.';
+        hint.style.color = 'var(--text-muted)';
+    }
+}
+
+// Final validation before submit (safety net)
+document.getElementById('informeForm').addEventListener('submit', function(e) {
+    let valid = true;
+
+    if (!img1Loaded.ok) {
+        document.getElementById('error1').style.display = 'block';
+        valid = false;
+    }
+    if (!img2Loaded.ok) {
+        document.getElementById('error2').style.display = 'block';
+        valid = false;
+    }
+
+    const desc = document.getElementById('descripcion_trabajo').value.trim();
+    if (desc.length < 20) {
+        document.getElementById('descripcion_trabajo').focus();
+        valid = false;
+    }
+
+    if (!valid) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Briefly shake the warning banner
+        const banner = document.getElementById('warningBanner');
+        banner.style.transform = 'translateX(-4px)';
+        setTimeout(() => banner.style.transform = 'translateX(4px)', 80);
+        setTimeout(() => banner.style.transform = '',           160);
+    } else {
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split spin"></i> Enviando…';
+    }
+});
+</script>
+{% endblock %}

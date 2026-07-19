@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva Solicitud{% endblock %}
+
+{% block content %}
+<div class="container py-2">
+
+    {# ===== PAGE HEADER ===== #}
+    <div class="page-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <h1><span class="text-gradient">Nueva Solicitud</span></h1>
+            <p>Completa el formulario para registrar tu solicitud de servicio técnico.</p>
+        </div>
+        <a href="{{ url_for('solicitante.dashboard') }}" class="btn-outline-custom">
+            <i class="bi bi-arrow-left"></i> Volver al Panel
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+
+            <div class="glass-card p-4 p-md-5">
+
+                {# ===== FORM ICON HEADER ===== #}
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div style="width:48px;height:48px;background:var(--gradient-brand);
+                                border-radius:14px;display:flex;align-items:center;
+                                justify-content:center;box-shadow:0 0 24px var(--primary-glow);">
+                        <i class="bi bi-plus-circle-fill" style="font-size:1.3rem;color:white;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">
+                            Solicitud de Servicio
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);">
+                            Todos los campos marcados con <span style="color:var(--danger);">*</span> son obligatorios.
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ url_for('solicitante.nueva_solicitud') }}" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    {# ===== TIPO DE SOPORTE ===== #}
+                    <div class="form-group">
+                        <label class="form-label" for="tipo_soporte">
+                            <i class="bi bi-wrench-adjustable me-1"></i>
+                            Tipo de Soporte <span style="color:var(--danger);">*</span>
+                        </label>
+                        <select class="form-select" id="id_tipo_soporte" name="id_tipo_soporte" required>
+                            <option value="" disabled selected>Selecciona el tipo de soporte...</option>
+                            {% for tipo in tipos %}
+                            <option value="{{ tipo.id_tipo_soporte }}">{{ tipo.nombre_soporte }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {# ===== DESCRIPCIÓN ===== #}
+                    <div class="form-group">
+                        <label class="form-label" for="descripcion">
+                            <i class="bi bi-chat-text me-1"></i>
+                            Descripción del Problema <span style="color:var(--danger);">*</span>
+                        </label>
+                        <textarea class="form-control" id="descripcion" name="descripcion"
+                                  rows="4" required
+                                  placeholder="Describe detalladamente el problema o servicio que necesitas...">{{ request.form.get('descripcion', '') }}</textarea>
+                    </div>
+
+                    {# ===== FECHA Y HORARIO (2 cols) ===== #}
+                    <div class="row g-3 mb-0">
+                        <div class="col-12 col-sm-6">
+                            <div class="form-group mb-0">
+                                <label class="form-label" for="fecha_atencion">
+                                    <i class="bi bi-calendar-event me-1"></i>
+                                    Fecha de Atención <span style="color:var(--danger);">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="fecha_atencion"
+                                       name="fecha_atencion" required
+                                       min="{{ now().strftime('%Y-%m-%d') if now is defined else '' }}"
+                                       value="{{ request.form.get('fecha_atencion', '') }}">
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <div class="form-group mb-0">
+                                <label class="form-label" for="horario">
+                                    <i class="bi bi-clock me-1"></i>
+                                    Horario Solicitado <span style="color:var(--danger);">*</span>
+                                </label>
+                                <select class="form-select" id="horario_solicitado" name="horario_solicitado" required>
+                                    <option value="" disabled selected>Seleccionar horario...</option>
+                                    <option value="Mañana 8-12"
+                                        {{ 'selected' if request.form.get('horario_solicitado') == 'Mañana 8-12' }}>
+                                        🌅 Mañana — 8:00 a 12:00
+                                    </option>
+                                    <option value="Tarde 13-17"
+                                        {{ 'selected' if request.form.get('horario_solicitado') == 'Tarde 13-17' }}>
+                                        🌇 Tarde — 13:00 a 17:00
+                                    </option>
+                                    <option value="Todo el día"
+                                        {{ 'selected' if request.form.get('horario_solicitado') == 'Todo el día' }}>
+                                        ☀️ Todo el día
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ===== RECURSOS ADICIONALES ===== #}
+                    <div class="form-group mt-3">
+                        <label class="form-label" for="recursos_adicionales">
+                            <i class="bi bi-paperclip me-1"></i>
+                            Recursos o Notas Adicionales
+                            <span style="color:var(--text-muted);font-size:0.75rem;
+                                         text-transform:none;letter-spacing:0;">(opcional)</span>
+                        </label>
+                        <textarea class="form-control" id="recursos_adicionales"
+                                  name="recursos_adicionales" rows="3"
+                                  placeholder="Modelo del equipo, número de serie, software involucrado, etc.">{{ request.form.get('recursos_adicionales', '') }}</textarea>
+                    </div>
+
+                    {# ===== INFO NOTE ===== #}
+                    <div style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);
+                                border-radius:var(--radius-md);padding:14px 18px;margin-bottom:24px;
+                                font-size:0.82rem;color:var(--text-secondary);">
+                        <i class="bi bi-info-circle me-2" style="color:var(--primary-light);"></i>
+                        Tu solicitud será revisada y se te asignará un técnico. Recibirás actualizaciones
+                        en tiempo real a través del chat del ticket.
+                    </div>
+
+                    {# ===== BUTTONS ===== #}
+                    <div class="d-flex flex-wrap gap-3">
+                        <button type="submit" class="btn-primary-custom flex-grow-1 justify-content-center">
+                            <i class="bi bi-send-fill"></i> Enviar Solicitud
+                        </button>
+                        <a href="{{ url_for('solicitante.dashboard') }}"
+                           class="btn-outline-custom justify-content-center"
+                           style="flex:0 0 auto;">
+                            <i class="bi bi-x-lg"></i> Cancelar
+                        </a>
+                    </div>
+
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set min date to today dynamically
+    const fechaInput = document.getElementById('fecha_atencion');
+    if (fechaInput && !fechaInput.getAttribute('min')) {
+        const today = new Date().toISOString().split('T')[0];
+        fechaInput.setAttribute('min', today);
+    }
+</script>
+{% endblock %}

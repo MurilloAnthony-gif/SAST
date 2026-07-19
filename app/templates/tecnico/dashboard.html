@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Mis Solicitudes{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+
+    {# ===== PAGE HEADER ===== #}
+    <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <h1 class="d-flex align-items-center gap-2">
+                <i class="bi bi-tools text-gradient" style="font-size:1.6rem;"></i>
+                Mis Solicitudes Asignadas
+                {% if total_no_leidos > 0 %}
+                <span class="badge-status status-en-proceso ms-1"
+                      style="font-size:0.75rem; padding:5px 12px; border-radius:20px; animation:pulse-badge 2s infinite;">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    {{ total_no_leidos }} mensaje{{ total_no_leidos != 1 and 's' or '' }} nuevo{{ total_no_leidos != 1 and 's' or '' }}
+                </span>
+                {% endif %}
+            </h1>
+            <p>Gestiona y atiende las solicitudes de soporte técnico asignadas a ti.</p>
+        </div>
+    </div>
+
+    {# ===== STATS ===== #}
+    {% set total      = solicitudes | length %}
+    {% set en_proceso = solicitudes | selectattr('estado.nombre_estado', 'equalto', 'En Proceso') | list | length %}
+    {% set resueltas  = solicitudes | selectattr('estado.nombre_estado', 'equalto', 'Resuelto')  | list | length %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <i class="bi bi-ticket-detailed-fill"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total }}</div>
+                    <div class="stat-label">Total Asignadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="stat-card">
+                <div class="stat-icon cyan">
+                    <i class="bi bi-arrow-repeat"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ en_proceso }}</div>
+                    <div class="stat-label">En Proceso</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="bi bi-check2-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ resueltas }}</div>
+                    <div class="stat-label">Resueltas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ===== SOLICITUD CARDS ===== #}
+    {% if solicitudes %}
+    <div class="d-flex flex-column gap-3">
+        {% for sol in solicitudes %}
+
+        {# Determine badge class #}
+        {% set estado_css = {
+            'Pendiente':  'status-pendiente',
+            'En Proceso': 'status-en-proceso',
+            'Resuelto':   'status-resuelto',
+            'Cancelado':  'status-cancelado'
+        } %}
+
+        {# Count unread messages for this solicitud stored in sol.mensajes_no_leidos #}
+        {% set unread = sol.mensajes_no_leidos if sol.mensajes_no_leidos is defined else 0 %}
+
+        <a href="{{ url_for('tecnico.ver_solicitud', solicitud_id=sol.id_solicitud) }}"
+           class="solicitud-card">
+            <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+
+                {# Left: ID + title #}
+                <div class="d-flex align-items-start gap-3 flex-grow-1">
+                    <div class="stat-icon purple flex-shrink-0" style="width:44px;height:44px;font-size:1rem;">
+                        <i class="bi bi-clipboard2-pulse-fill"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span class="fw-700" style="color:var(--text-primary);font-size:0.95rem;">
+                                #{{ sol.id_solicitud }}
+                            </span>
+                            <span class="badge-type">{{ sol.tipo_soporte }}</span>
+                            <span class="badge-status {{ estado_css.get(sol.estado.nombre_estado, 'status-pendiente') }}">
+                                {{ sol.estado.nombre_estado }}
+                            </span>
+                            {% if unread > 0 %}
+                            <span class="badge-status status-en-proceso"
+                                  style="background:rgba(239,68,68,0.15);color:#fca5a5;border-color:rgba(239,68,68,0.3);">
+                                <i class="bi bi-chat-fill"></i>
+                                {{ unread }} nuevo{{ unread != 1 and 's' or '' }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="fw-600" style="color:var(--text-primary);font-size:0.9rem;margin-bottom:2px;">
+                            {{ sol.cliente.nombre_completo }}
+                        </div>
+                        <div style="color:var(--text-muted);font-size:0.8rem;">
+                            <i class="bi bi-person-vcard me-1"></i>
+                            {{ sol.cliente.correo if sol.cliente.correo else '—' }}
+                        </div>
+                    </div>
+                </div>
+
+                {# Right: date + time #}
+                <div class="text-end flex-shrink-0">
+                    {% if sol.fecha_atencion %}
+                    <div style="color:var(--text-secondary);font-size:0.82rem;font-weight:500;">
+                        <i class="bi bi-calendar3 me-1"></i>
+                        {{ sol.fecha_atencion.strftime('%d/%m/%Y') if sol.fecha_atencion else '—' }}
+                    </div>
+                    {% endif %}
+                    {% if sol.horario %}
+                    <div style="color:var(--text-muted);font-size:0.78rem;margin-top:2px;">
+                        <i class="bi bi-clock me-1"></i>
+                        {{ sol.horario }}
+                    </div>
+                    {% endif %}
+                    <div class="mt-2">
+                        <i class="bi bi-arrow-right-circle text-gradient" style="font-size:1.1rem;"></i>
+                    </div>
+                </div>
+
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    {# ===== EMPTY STATE ===== #}
+    <div class="glass-card p-5 mt-2">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h3>Sin solicitudes asignadas</h3>
+            <p>No tienes solicitudes asignadas en este momento.<br>
+               Cuando el administrador te asigne una, aparecerá aquí.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

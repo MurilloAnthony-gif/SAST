@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block title %}Solicitud #{{ solicitud.id_solicitud }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:900px;">
+
+  <!-- ===== PAGE HEADER ===== -->
+  <div class="page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <a href="{{ url_for('admin.solicitudes') }}" class="btn-outline-custom" style="padding:8px 12px;flex-shrink:0;">
+          <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+          <h1 class="d-flex align-items-center gap-2">
+            <span class="stat-icon purple" style="width:44px;height:44px;border-radius:12px;font-size:1.2rem;">
+              <i class="bi bi-file-earmark-text-fill"></i>
+            </span>
+            Solicitud <span style="color:var(--primary-light);">#{{ solicitud.id_solicitud }}</span>
+          </h1>
+          <p>Vista detallada de administrador</p>
+        </div>
+      </div>
+      <!-- Estado + Assign Button -->
+      <div class="d-flex gap-2 align-items-center">
+        {% set estado_slug = solicitud.estado.nombre_estado | lower | replace(' ', '-') %}
+        <span class="badge-status status-{{ estado_slug }}" style="font-size:0.82rem;padding:6px 14px;">
+          {{ solicitud.estado.nombre_estado }}
+        </span>
+        {% if solicitud.estado.nombre_estado in ['Pendiente', 'En proceso'] %}
+        <a href="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom" style="padding:8px 18px;">
+          <i class="bi bi-person-check-fill"></i> Asignar
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN DETAILS CARD ===== -->
+  <div class="section-card mb-4">
+    <div class="section-card-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill" style="color:var(--primary-light);"></i>
+        <span style="font-weight:700;">Información General</span>
+      </div>
+    </div>
+    <div class="section-card-body">
+
+      <div class="row g-0">
+        <div class="col-md-6">
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-hash"></i> ID Solicitud</div>
+            <div class="detail-value" style="font-weight:700;color:var(--primary-light);">#{{ solicitud.id_solicitud }}</div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-gear-fill"></i> Tipo de Servicio</div>
+            <div class="detail-value">
+              <span class="badge-type">{{ solicitud.tipo_soporte.nombre_soporte }}</span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-flag-fill"></i> Estado</div>
+            <div class="detail-value">
+              <span class="badge-status status-{{ estado_slug }}">{{ solicitud.estado.nombre_estado }}</span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-calendar3"></i> Fecha Solicitud</div>
+            <div class="detail-value">
+              {{ solicitud.fecha_creacion.strftime('%d de %B de %Y, %H:%M') if solicitud.fecha_creacion else '—' }}
+            </div>
+          </div>
+
+        </div>
+        <div class="col-md-6">
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-person-fill"></i> Cliente</div>
+            <div class="detail-value">
+              <div style="font-weight:600;color:var(--text-primary);">{{ solicitud.cliente.nombre_completo }}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">CI: {{ solicitud.cliente.ncedula }}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">{{ solicitud.cliente.correo }}</div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-telephone-fill"></i> Teléfono Cliente</div>
+            <div class="detail-value">{{ solicitud.cliente.numero_telefono or '—' }}</div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-tools"></i> Técnico Asignado</div>
+            <div class="detail-value">
+              {% if solicitud.tecnico %}
+              <div style="font-weight:600;color:var(--secondary);">{{ solicitud.tecnico.nombre_completo }}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">{{ solicitud.tecnico.correo }}</div>
+              {% else %}
+              <span style="color:var(--text-muted);font-style:italic;">No asignado</span>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if solicitud.reporte %}
+          <div class="detail-row">
+            <div class="detail-label"><i class="bi bi-check-circle-fill"></i> Fecha Reporte</div>
+            <div class="detail-value">{{ solicitud.reporte.fecha_creacion.strftime('%d de %B de %Y, %H:%M') }}</div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+      <!-- Descripción full width -->
+      <div class="detail-row" style="flex-direction:column;gap:8px;border-bottom:none;">
+        <div class="detail-label"><i class="bi bi-card-text"></i> Descripción del Problema</div>
+        <div class="detail-value" style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;line-height:1.7;">
+          {{ solicitud.descripcion }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <!-- END MAIN DETAILS -->
+
+  <!-- ===== REPORTE ===== -->
+  {% if solicitud.reporte %}
+  <div class="section-card mb-4">
+    <div class="section-card-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-file-earmark-check-fill" style="color:var(--success);"></i>
+        <span style="font-weight:700;">Reporte Técnico</span>
+      </div>
+      <span class="badge-status status-resuelto" style="font-size:0.75rem;">Completado</span>
+    </div>
+    <div class="section-card-body">
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-card-text"></i> Diagnóstico</div>
+        <div class="detail-value">{{ solicitud.reporte.descripcion_trabajo }}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-calendar-check"></i> Fecha Reporte</div>
+        <div class="detail-value">{{ solicitud.reporte.fecha_creacion.strftime('%d de %B de %Y, %H:%M') }}</div>
+      </div>
+
+      <!-- Evidence Images -->
+      {% if solicitud.reporte.imagen_evidencia_1 or solicitud.reporte.imagen_evidencia_2 %}
+      <div class="mt-4">
+        <div class="form-label mb-3"><i class="bi bi-images me-1"></i> Evidencia Fotográfica</div>
+        <div class="evidence-grid">
+          {% if solicitud.reporte.imagen_evidencia_1 %}
+          <div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
+              <i class="bi bi-camera me-1"></i> Estado Inicial
+            </div>
+            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_1) }}"
+                 alt="Estado inicial" class="evidence-img"
+                 onclick="window.open(this.src, '_blank')">
+          </div>
+          {% endif %}
+          {% if solicitud.reporte.imagen_evidencia_2 %}
+          <div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
+              <i class="bi bi-camera-fill me-1"></i> Estado Entregado
+            </div>
+            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_2) }}"
+                 alt="Estado entregado" class="evidence-img"
+                 onclick="window.open(this.src, '_blank')">
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+  <!-- END REPORTE -->
+
+  <!-- ===== CALIFICACIÓN ===== -->
+  {% if solicitud.calificacion %}
+  <div class="section-card mb-4">
+    <div class="section-card-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-star-fill" style="color:var(--warning);"></i>
+        <span style="font-weight:700;">Calificación del Servicio</span>
+      </div>
+    </div>
+    <div class="section-card-body">
+
+      <!-- Stars Display -->
+      <div class="text-center mb-4">
+        <div style="font-size:2.8rem;letter-spacing:4px;line-height:1;">
+          {% for i in range(5) %}
+            {% if i < solicitud.calificacion.puntuacion %}
+              <i class="bi bi-star-fill" style="color:var(--warning);filter:drop-shadow(0 0 8px rgba(245,158,11,0.5));"></i>
+            {% else %}
+              <i class="bi bi-star" style="color:var(--text-muted);"></i>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div style="margin-top:12px;font-size:1.5rem;font-weight:800;color:var(--warning);">
+          {{ solicitud.calificacion.puntuacion }}/5
+        </div>
+        <div style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;">
+          Calificado el {{ solicitud.calificacion.fecha_calificacion.strftime('%d/%m/%Y') if solicitud.calificacion.fecha_calificacion else '' }}
+        </div>
+      </div>
+
+      <!-- Comment -->
+      {% if solicitud.calificacion.comentario %}
+      <div>
+        <div class="form-label mb-2"><i class="bi bi-chat-quote-fill me-1"></i> Comentario del Cliente</div>
+        <blockquote style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-left:3px solid var(--warning);border-radius:var(--radius-sm);padding:14px 18px;color:var(--text-secondary);font-style:italic;margin:0;">
+          "{{ solicitud.calificacion.comentario }}"
+        </blockquote>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+  <!-- END CALIFICACIÓN -->
+
+  <!-- ===== BACK BUTTON ===== -->
+  <div class="d-flex gap-3 justify-content-between flex-wrap pb-4">
+    <a href="{{ url_for('admin.solicitudes') }}" class="btn-outline-custom">
+      <i class="bi bi-arrow-left"></i> Volver a Solicitudes
+    </a>
+    {% if solicitud.estado.nombre_estado in ['Pendiente', 'En proceso'] %}
+    <a href="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom">
+      <i class="bi bi-person-check-fill"></i> Asignar / Reasignar Técnico
+    </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

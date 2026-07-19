@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Asignar Técnico — #{{ solicitud.id_solicitud }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:760px;">
+
+  <!-- ===== PAGE HEADER ===== -->
+  <div class="page-header">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('admin.solicitudes') }}" class="btn-outline-custom" style="padding:8px 12px;flex-shrink:0;">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h1 class="d-flex align-items-center gap-2">
+          <span class="stat-icon cyan" style="width:44px;height:44px;border-radius:12px;font-size:1.2rem;">
+            <i class="bi bi-person-check-fill"></i>
+          </span>
+          Asignar Técnico
+        </h1>
+        <p>Solicitud <strong style="color:var(--primary-light);">#{{ solicitud.id_solicitud }}</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SOLICITUD SUMMARY CARD ===== -->
+  <div class="section-card mb-4">
+    <div class="section-card-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle-fill" style="color:var(--primary-light);"></i>
+        <span style="font-weight:700;">Resumen de la Solicitud</span>
+      </div>
+      {% set estado_slug = solicitud.estado.nombre_estado | lower | replace(' ', '-') %}
+      <span class="badge-status status-{{ estado_slug }}">{{ solicitud.estado.nombre_estado }}</span>
+    </div>
+    <div class="section-card-body">
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-hash"></i> ID</div>
+        <div class="detail-value" style="font-weight:700;color:var(--primary-light);">#{{ solicitud.id_solicitud }}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-gear"></i> Tipo de Servicio</div>
+        <div class="detail-value">
+          <span class="badge-type">{{ solicitud.tipo_soporte.nombre_soporte }}</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-person-fill"></i> Cliente</div>
+        <div class="detail-value">
+          <div style="font-weight:600;color:var(--text-primary);">{{ solicitud.cliente.nombre_completo }}</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">{{ solicitud.cliente.correo }}</div>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-calendar3"></i> Fecha</div>
+        <div class="detail-value">{{ solicitud.fecha_creacion.strftime('%d de %B de %Y') if solicitud.fecha_creacion else '—' }}</div>
+      </div>
+
+      <div class="detail-row" style="border-bottom:none;">
+        <div class="detail-label"><i class="bi bi-card-text"></i> Descripción</div>
+        <div class="detail-value">{{ solicitud.descripcion }}</div>
+      </div>
+
+    </div>
+  </div>
+  <!-- END SUMMARY -->
+
+  <!-- ===== ASSIGNMENT FORM ===== -->
+  <div class="section-card">
+    <div class="section-card-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-person-gear" style="color:var(--secondary);"></i>
+        <span style="font-weight:700;">Seleccionar Técnico</span>
+      </div>
+    </div>
+    <div class="section-card-body">
+
+      <form method="POST" action="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group mb-4">
+          <label class="form-label" for="tecnico_id">
+            <i class="bi bi-tools me-1"></i> Técnico Disponible
+          </label>
+
+          {% if tecnicos %}
+          <select name="tecnico_id" id="tecnico_id" class="form-select" required>
+            <option value="">— Selecciona un técnico —</option>
+            {% for tec in tecnicos %}
+            <option value="{{ tec.id_user }}"
+              {% if solicitud.tecnico and solicitud.tecnico.id_user == tec.id_user %}selected{% endif %}>
+              {{ tec.nombre_completo }}
+              {% if tec.tecnico_info and tec.tecnico_info.carrera %} — {{ tec.tecnico_info.carrera }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+
+          <!-- Técnico previamente asignado -->
+          {% if solicitud.tecnico %}
+          <div class="mt-2 d-flex align-items-center gap-2" style="font-size:0.82rem;color:var(--text-muted);">
+            <i class="bi bi-info-circle"></i>
+            Técnico actual: <strong style="color:var(--secondary);">{{ solicitud.tecnico.nombre_completo }}</strong>
+          </div>
+          {% endif %}
+
+          {% else %}
+          <!-- No technicians available -->
+          <div class="alert-notification" style="margin-bottom:0;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning);font-size:1.3rem;flex-shrink:0;"></i>
+            <div>
+              <div style="font-weight:600;color:var(--warning);">Sin técnicos disponibles</div>
+              <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px;">
+                No hay técnicos registrados en el sistema.
+                <a href="{{ url_for('admin.crear_tecnico') }}" style="color:var(--primary-light);">Crear un técnico</a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-3 justify-content-end flex-wrap">
+          <a href="{{ url_for('admin.solicitudes') }}" class="btn-outline-custom">
+            <i class="bi bi-x-lg"></i> Cancelar
+          </a>
+          {% if tecnicos %}
+          <button type="submit" class="btn-primary-custom">
+            <i class="bi bi-person-check-fill"></i> Confirmar Asignación
+          </button>
+          {% endif %}
+        </div>
+
+      </form>
+    </div>
+  </div>
+  <!-- END FORM -->
+
+</div>
+{% endblock %}
