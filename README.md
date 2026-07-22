@@ -2,31 +2,53 @@
 
 Bienvenido al proyecto SAST, una plataforma web construida en Python (Flask) diseñada para gestionar solicitudes de servicio técnico de manera eficiente y en tiempo real. 
 
-## 🚀 Tecnologías Principales
-
-- **Backend:** Python 3.14 con Flask
-- **Base de Datos:** SQLite (SQLAlchemy ORM)
-- **Tiempo Real:** Flask-SocketIO (usando `threading` por compatibilidad)
-- **Frontend:** HTML5, Jinja2, Vanilla CSS (Dark Mode & Glassmorphism), Bootstrap 5 (Grids y Utilidades)
-- **Seguridad:** Werkzeug (Hashing), Flask-WTF (Protección CSRF)
+Este proyecto fue estructurado especialmente para la **Universidad Técnica de Manabí (UTM)**, enfocado en el manejo de soporte técnico para sus distintas ubicaciones (sectores).
 
 ---
 
-## 🛠️ Cómo Iniciar el Proyecto Localmente
+## 🚀 Tecnologías Principales
 
-Abre tu consola o terminal (como PowerShell) y sigue estos pasos:
+- **Backend:** Python (Flask)
+- **Base de Datos (Local):** SQLite (SQLAlchemy ORM)
+- **Base de Datos (Producción):** PostgreSQL (psycopg2)
+- **Tiempo Real:** Flask-SocketIO (usando Gevent-WebSocket para producción)
+- **Generación de PDF:** ReportLab
+- **Frontend:** HTML5, Jinja2, Vanilla CSS (Dark Mode & Glassmorphism), Bootstrap 5 (Grids y Utilidades)
+- **Despliegue (Nube):** Gunicorn & Render.com
+
+---
+
+## ☁️ Producción (Render.com)
+
+El sistema está configurado para ser desplegado fácilmente en **Render.com** utilizando una base de datos PostgreSQL.
+
+### Credenciales del Administrador (Producción)
+Al ejecutar el comando de inicialización de base de datos en la nube (`flask init-db`), se creará automáticamente el siguiente usuario administrador predeterminado:
+
+- **Correo:** `sastutm@gmail.com`
+- **Contraseña:** `Sast20260722JARJ`
+
+### Comando de Arranque (Render Start Command)
+En la configuración del Web Service en Render, asegúrate de utilizar el siguiente comando de inicio para garantizar el correcto funcionamiento del chat en tiempo real:
+```bash
+gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 app:create_app()
+```
+
+---
+
+## 🛠️ Cómo Iniciar el Proyecto Localmente (Desarrollo)
+
+Abre tu consola o terminal y sigue estos pasos:
 
 ```powershell
-# 1. Navegar a la carpeta del proyecto
-cd "c:\Users\antho\OneDrive\Escritorio\SAST"
-
-# 2. Configurar la codificación de caracteres para evitar errores en Windows
+# 1. Configurar la codificación de caracteres para evitar errores en Windows
 $env:PYTHONIOENCODING="utf-8"
 
-# 3. Inicializar la Base de Datos (Solo es necesario la primera vez)
+# 2. Inicializar la Base de Datos (Solo es necesario la primera vez)
+# Esto creará las tablas, ubicaciones base (sectores de la UTM) y el administrador.
 python -m flask --app "run:app" init-db
 
-# 4. Correr el servidor
+# 3. Correr el servidor de desarrollo
 python run.py
 ```
 
@@ -35,76 +57,46 @@ Una vez que veas el mensaje de que el servidor está corriendo, abre tu navegado
 
 ---
 
-## 🔑 Credenciales de Prueba
-
-Si ejecutaste el script `seed_demo.py` (o la inicialización de la BD), tienes estos usuarios disponibles:
-
-| Rol | Correo | Contraseña | ¿Dónde ingresa? |
-|-----|--------|------------|----------------|
-| **Administrador** | `admin@sast.com` | `Admin123!` | `/admin/dashboard` |
-| **Técnico** | `tecnico@sast.com` | `Tecnico123!` | `/tecnico/dashboard` |
-| **Cliente** | `cliente@sast.com` | `Cliente123!` | `/solicitante/dashboard` |
-
----
-
 ## 📂 Estructura del Proyecto
 
-Esta es la organización de los archivos para que no te pierdas:
+Esta es la organización principal de los archivos:
 
-```
+```text
 SAST/
-├── run.py                          # Punto de entrada principal para arrancar el servidor
-├── seed_demo.py                    # Script opcional para crear usuarios de prueba
-├── requirements.txt                # Lista de librerías y dependencias instaladas
-├── .env                            # Variables de entorno (correo, contraseñas, etc.)
+├── run.py                          # Punto de entrada principal para arrancar el servidor local
+├── requirements.txt                # Dependencias de Python (Flask, Gunicorn, psycopg2, etc.)
+├── .env                            # Variables de entorno (DATABASE_URL, SECRET_KEY)
 └── app/
-    ├── __init__.py                 # Fábrica de la aplicación Flask (Configuración inicial)
-    ├── config.py                   # Configuración de rutas y variables globales
-    ├── extensions.py               # Inicialización de extensiones (db, socketio, mail)
+    ├── __init__.py                 # Fábrica de la aplicación Flask y lógica init-db
+    ├── config.py                   # Configuración de variables globales e interceptor de Postgres
+    ├── extensions.py               # Instancias compartidas (db, socketio, mail)
+    ├── pdf_generator.py            # Lógica para la generación de reportes e informes en PDF
     ├── sockets.py                  # Lógica del chat en tiempo real (SocketIO)
-    ├── utils.py                    # Funciones de ayuda (guardar imágenes, validaciones)
+    ├── utils.py                    # Funciones útiles para subir archivos y manejo general
     ├── models/                     # Modelos de la Base de Datos (Tablas)
-    │   ├── user.py                 # Usuarios, Roles y Detalles de Técnicos
-    │   ├── solicitud.py            # Solicitudes, Estados y Tipos de Soporte
+    │   ├── user.py                 # Usuarios, Roles y Detalles
+    │   ├── solicitud.py            # Solicitudes y Estados
     │   ├── mensaje.py              # Mensajes del chat
-    │   ├── reporte.py              # Reportes técnicos (imágenes obligatorias)
-    │   └── calificacion.py        # Calificaciones de los clientes
-    ├── blueprints/                 # Controladores y Lógica de las páginas
-    │   ├── auth/                   # Todo lo relacionado a Iniciar Sesión y Registro
-    │   ├── solicitante/            # Páginas exclusivas para los Clientes
-    │   ├── tecnico/                # Páginas exclusivas para los Técnicos
-    │   └── admin/                  # Panel de Administración
-    ├── templates/                  # Archivos HTML (Diseño de la página)
-    │   ├── base.html               # Estructura principal, Menú de navegación (Navbar)
-    │   ├── auth/, solicitante/, tecnico/, admin/  # Plantillas divididas por rol
+    │   ├── reporte.py              # Informes técnicos (imágenes obligatorias)
+    │   └── sector.py               # Ubicaciones (Sistemas, Biblioteca, etc.)
+    ├── blueprints/                 # Controladores por tipo de usuario
+    │   ├── auth/                   # Autenticación (Login / Registro)
+    │   ├── solicitante/            # Funciones de Clientes (Crear tickets, ver PDF sin firmas)
+    │   ├── tecnico/                # Funciones de Técnicos (Responder tickets, crear reporte)
+    │   └── admin/                  # Dashboard, gestión de roles y asignación por ubicación
+    ├── templates/                  # Interfaz gráfica (HTML + Jinja2)
     └── static/                     # Archivos públicos (CSS, JS, Imágenes)
-        ├── css/main.css            # Archivo de estilos principales (Colores oscuros)
-        ├── js/chat.js              # Lógica de Javascript para el chat
-        ├── js/notifications.js     # Lógica para las notificaciones emergentes
-        └── uploads/                # Aquí se guardan las imágenes subidas
 ```
 
 ---
 
 ## 🔁 Flujo de Trabajo del Sistema
 
-El sistema está diseñado para funcionar de la siguiente manera:
-
-1. **El Cliente** se registra, inicia sesión y crea una **Nueva Solicitud** detallando su problema.
+1. **El Cliente** se registra, inicia sesión y crea una **Nueva Solicitud**.
 2. La solicitud entra en estado **Pendiente**.
-3. **El Administrador** revisa la solicitud en su panel y se la **Asigna** a un técnico disponible.
+3. **El Administrador** revisa la solicitud en su panel y, observando la **Ubicación (Sector)** del problema, se la **Asigna** al técnico que esté más cerca o disponible en esa misma ubicación.
 4. El estado cambia automáticamente a **En Proceso**.
-5. **El Técnico** revisa su panel, ve la solicitud asignada y puede usar el **Chat** integrado para hablar con el cliente si necesita más detalles.
-6. Una vez terminado el trabajo, el técnico llena el **Informe Técnico**, donde es **obligatorio subir 2 fotos** (cómo recibió y cómo entregó el equipo) y detallar la solución.
+5. **El Técnico** puede usar el **Chat** integrado para conversar con el cliente o el administrador.
+6. Una vez terminado el trabajo, el técnico genera el **Informe Técnico**, detallando la solución y subiendo **fotos de evidencia** (recepción y entrega).
 7. Al enviar el informe, el estado cambia a **Resuelto**.
-8. **El Cliente** recibe una notificación en tiempo real indicando que su equipo está listo y puede calificar el servicio del 1 al 5.
-
----
-
-## 🛠️ Notas Importantes y Mantenimiento
-
-* **Imágenes de los reportes:** Se guardan físicamente en la carpeta `app/static/uploads/reportes/`.
-* **SocketIO en Python 3.14:** Dado que la librería `eventlet` daba problemas en esta versión de Python, SocketIO está configurado para usar `async_mode='threading'`.
-* **Correos Electrónicos:** El sistema está preparado para enviar correos (cuando un ticket se resuelve). Para que funcione, debes configurar las credenciales SMTP en el archivo `.env`.
-
-¡Disfruta construyendo y mejorando tu proyecto SAST!
+8. **El Cliente** puede descargar su informe en **PDF** (versión limpia, sin firmas ni fotos de evidencia internas) y calificar el servicio del 1 al 5. El Administrador o Técnico pueden descargar el PDF completo con firmas digitales e imágenes.
