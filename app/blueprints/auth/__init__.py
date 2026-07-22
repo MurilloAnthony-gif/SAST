@@ -58,7 +58,14 @@ def register():
         correo = request.form.get('correo', '').strip().lower()
         password = request.form.get('contrasena', '')
         confirm_password = request.form.get('confirm_password', '')
-        sector = request.form.get('sector', '').strip()
+
+        # Sector: radio button, con soporte para "Otro"
+        sector_radio = request.form.get('sector', '').strip()
+        if sector_radio == '__otro__':
+            sector = request.form.get('sector_otro', '').strip()
+        else:
+            sector = sector_radio
+
 
         # Validaciones
         if not all([ncedula, nombres, apellidos, fecha_nacimiento_str,

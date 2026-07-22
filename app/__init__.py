@@ -26,7 +26,7 @@ def create_app(config_class=Config):
         from app.models import (
             User, Rol, DetallesTecnico,
             Solicitud, EstadoSolicitud, TipoSoporte,
-            Mensaje, Reporte, CalificacionTecnico
+            Mensaje, Reporte, CalificacionTecnico, Sector
         )
 
         # Registrar blueprints
@@ -90,12 +90,17 @@ def create_app(config_class=Config):
                     ).all()
             return dict(notificaciones_pendientes=notificaciones)
 
+        @app.context_processor
+        def inject_sectores():
+            from app.models import Sector
+            return dict(sectores_lista=Sector.query.order_by(Sector.nombre_sector).all())
+
     return app
 
 
 def _seed_data():
     """Pobla la base de datos con datos iniciales."""
-    from app.models import Rol, EstadoSolicitud, TipoSoporte, User
+    from app.models import Rol, EstadoSolicitud, TipoSoporte, User, Sector
     from datetime import date
 
     # Roles
@@ -129,6 +134,18 @@ def _seed_data():
         db.session.add_all(tipos)
 
     db.session.commit()
+
+    # Sectores / Barrios
+    if not Sector.query.first():
+        sectores = [
+            '12 de Marzo', '18 de Octubre', 'Abdon Calderon', 'Alhajuela',
+            'Andres de Vera', 'Chirijos', 'Colon', 'Crucita',
+            'Francisco Pacheco', 'Picoaza', 'Portoviejo', 'Pueblo Nuevo',
+            'Rio Chico', 'San Pablo', 'San Placido', 'Simon Bolivar',
+        ]
+        db.session.add_all([Sector(nombre_sector=s) for s in sectores])
+        db.session.commit()
+        print('[OK] Sectores cargados:', len(sectores))
 
     # Admin por defecto (solo si no existe)
     rol_admin = Rol.query.filter_by(nombre_rol='admin').first()

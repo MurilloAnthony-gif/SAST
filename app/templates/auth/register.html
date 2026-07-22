@@ -54,16 +54,55 @@
                 <div class="col-md-6">
                     <label class="form-label" for="numero_telefono">Teléfono *</label>
                     <input type="tel" class="form-control" id="numero_telefono" name="numero_telefono"
-                           placeholder="+57 300 000 0000" required
+                           placeholder="+593 00 000 0000" required
                            value="{{ form_data.get('numero_telefono', '') }}">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="sector">Sector / Barrio *</label>
-                    <input type="text" class="form-control" id="sector" name="sector"
-                           placeholder="Chapinero" required
-                           value="{{ form_data.get('sector', '') }}">
+            </div>
+
+            <!-- Sector -->
+            <div class="mb-3 mt-1">
+                <label class="form-label d-block mb-2">
+                    <i class="bi bi-geo-alt-fill me-1"></i>Sector / Barrio *
+                </label>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);
+                            border-radius:var(--radius-sm);padding:16px 18px;max-height:260px;
+                            overflow-y:auto;" id="sectorContainer">
+                    {% set sector_guardado = form_data.get('sector', '') %}
+                    {% for s in sectores_lista %}
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="radio"
+                               name="sector" id="sector_{{ loop.index }}"
+                               value="{{ s.nombre_sector }}"
+                               onchange="document.getElementById('sectorOtro').disabled=true;document.getElementById('sectorOtro').value='';"
+                               {% if sector_guardado == s.nombre_sector %}checked{% endif %}>
+                        <label class="form-check-label" for="sector_{{ loop.index }}"
+                               style="color:var(--text-secondary);font-size:0.88rem;">
+                            {{ s.nombre_sector }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    <!-- Otro -->
+                    <div class="form-check mb-1 mt-2">
+                        <input class="form-check-input" type="radio"
+                               name="sector" id="sectorOtroRadio" value="__otro__"
+                               onchange="document.getElementById('sectorOtro').disabled=false;document.getElementById('sectorOtro').focus();"
+                               {% if sector_guardado and sector_guardado not in sectores_lista|map(attribute='nombre_sector')|list %}checked{% endif %}>
+                        <label class="form-check-label" for="sectorOtroRadio"
+                               style="color:var(--text-secondary);font-size:0.88rem;">
+                            Otro:
+                        </label>
+                    </div>
+                    <input type="text" id="sectorOtro" name="sector_otro"
+                           class="form-control mt-1" placeholder="Escribe tu sector..."
+                           style="font-size:0.85rem;"
+                           disabled
+                           value="{{ sector_guardado if sector_guardado and sector_guardado not in sectores_lista|map(attribute='nombre_sector')|list else '' }}">
+                </div>
+                <div id="sectorError" style="color:#fca5a5;font-size:0.78rem;margin-top:5px;display:none;">
+                    <i class="bi bi-exclamation-circle me-1"></i>Selecciona o escribe tu sector.
                 </div>
             </div>
+
 
             <!-- Credenciales -->
             <div class="mb-3 mt-2" style="color:var(--text-muted);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">
@@ -160,10 +199,11 @@ function togglePassword(inputId, btn) {
     }
 }
 
-// Validación de contraseñas
+// Validación de contraseñas y sector
 document.getElementById('registerForm').addEventListener('submit', function(e) {
     const pass = document.getElementById('contrasena').value;
     const confirm = document.getElementById('confirm_password').value;
+    let valid = true;
 
     if (pass !== confirm) {
         e.preventDefault();
@@ -171,9 +211,36 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
         return;
     }
 
-    const btn = document.getElementById('registerBtn');
-    btn.innerHTML = '<span class="spin"><i class="bi bi-hourglass-split"></i></span> Registrando...';
-    btn.disabled = true;
+    // Validar sector
+    const sectorRadios = document.querySelectorAll('input[name="sector"]');
+    const sectorSeleccionado = [...sectorRadios].find(r => r.checked);
+    const sectorError = document.getElementById('sectorError');
+
+    if (!sectorSeleccionado) {
+        sectorError.style.display = 'block';
+        document.getElementById('sectorContainer').scrollIntoView({ behavior: 'smooth' });
+        e.preventDefault();
+        valid = false;
+    } else if (sectorSeleccionado.value === '__otro__') {
+        const otroVal = document.getElementById('sectorOtro').value.trim();
+        if (!otroVal) {
+            sectorError.style.display = 'block';
+            sectorError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Escribe tu sector en el campo "Otro".';
+            e.preventDefault();
+            valid = false;
+        } else {
+            sectorError.style.display = 'none';
+        }
+    } else {
+        sectorError.style.display = 'none';
+    }
+
+    if (valid) {
+        const btn = document.getElementById('registerBtn');
+        btn.innerHTML = '<span class="spin"><i class="bi bi-hourglass-split"></i></span> Registrando...';
+        btn.disabled = true;
+    }
 });
+
 </script>
 {% endblock %}
