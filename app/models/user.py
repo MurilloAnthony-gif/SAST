@@ -1,7 +1,8 @@
 from app.extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import date
+from datetime import date, datetime
+import secrets
 
 
 class Rol(db.Model):
@@ -32,6 +33,10 @@ class User(UserMixin, db.Model):
     declaracion_veracidad = db.Column(db.Boolean, default=False)
     autorizacion_datos = db.Column(db.Boolean, default=False)
 
+    # Recuperación de contraseña
+    reset_token = db.Column(db.String(100), nullable=True, unique=True)
+    reset_token_expiry = db.Column(db.DateTime, nullable=True)
+
     id_rol = db.Column(db.Integer, db.ForeignKey('roles.id_rol'), nullable=False)
 
     # Relaciones
@@ -56,6 +61,24 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.contrasena, password)
+
+    def generar_reset_token(self, expiry_minutes: int = 30):
+        """Genera un token seguro para reseteo de contraseña."""
+        from datetime import timedelta
+        self.reset_token = secrets.token_urlsafe(48)
+        self.reset_token_expiry = datetime.utcnow() + timedelta(minutes=expiry_minutes)
+        return self.reset_token
+
+    def reset_token_valido(self) -> bool:
+        """Verifica si el token existe y no ha expirado."""
+        if not self.reset_token or not self.reset_token_expiry:
+            return False
+        return datetime.utcnow() < self.reset_token_expiry
+
+    def limpiar_reset_token(self):
+        """Limpia el token después de usarlo."""
+        self.reset_token = None
+        self.reset_token_expiry = None
 
     @property
     def nombre_completo(self):

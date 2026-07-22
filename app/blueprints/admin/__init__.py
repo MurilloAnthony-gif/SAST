@@ -5,9 +5,11 @@ from app.models import (
     User, Rol, Solicitud, EstadoSolicitud, TipoSoporte,
     CalificacionTecnico, DetallesTecnico
 )
+from app import email_service
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import func
+import threading
 
 admin_bp = Blueprint('admin', __name__, template_folder='templates')
 
@@ -131,6 +133,18 @@ def asignar_tecnico(solicitud_id):
         solicitud.id_estado = estado_en_proceso.id_estado
         db.session.commit()
 
+        # Notificar al cliente y al técnico en segundo plano
+        threading.Thread(
+            target=email_service.enviar_tecnico_asignado_cliente,
+            args=(solicitud,),
+            daemon=True
+        ).start()
+        threading.Thread(
+            target=email_service.enviar_solicitud_asignada_tecnico,
+            args=(solicitud,),
+            daemon=True
+        ).start()
+
         flash(f'Técnico {tecnico.nombre_completo} asignado con éxito. Estado → En proceso.', 'success')
         return redirect(url_for('admin.solicitudes'))
 
@@ -238,6 +252,13 @@ def crear_tecnico():
         )
         db.session.add(detalles)
         db.session.commit()
+
+        # Enviar correo de bienvenida al técnico con su contraseña
+        threading.Thread(
+            target=email_service.enviar_bienvenida_tecnico,
+            args=(user, password),
+            daemon=True
+        ).start()
 
         flash(f'Técnico {user.nombre_completo} creado con éxito.', 'success')
         return redirect(url_for('admin.usuarios'))

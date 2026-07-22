@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from app.extensions import db
-from app.models import Solicitud, EstadoSolicitud, TipoSoporte, Mensaje, CalificacionTecnico
+from app.models import Solicitud, EstadoSolicitud, TipoSoporte, Mensaje, CalificacionTecnico, User, Rol
 from app.utils import save_file, allowed_file
+from app import email_service
 from functools import wraps
 from datetime import datetime
+import threading
 
 solicitante_bp = Blueprint('solicitante', __name__, template_folder='templates')
 
@@ -84,6 +86,16 @@ def nueva_solicitud():
         db.session.commit()
 
         flash('¡Solicitud creada con éxito! El administrador la revisará pronto.', 'success')
+
+        # Notificar a todos los admins en segundo plano
+        rol_admin = Rol.query.filter_by(nombre_rol='admin').first()
+        admins = User.query.filter_by(id_rol=rol_admin.id_rol).all() if rol_admin else []
+        threading.Thread(
+            target=email_service.enviar_nueva_solicitud_admin,
+            args=(solicitud, admins),
+            daemon=True
+        ).start()
+
         return redirect(url_for('solicitante.dashboard'))
 
     return render_template('solicitante/nueva_solicitud.html', tipos=tipos)

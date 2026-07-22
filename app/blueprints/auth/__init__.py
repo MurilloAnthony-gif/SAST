@@ -2,7 +2,9 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User, Rol
+from app import email_service
 from datetime import datetime
+import threading
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
@@ -110,6 +112,8 @@ def register():
         db.session.commit()
 
         flash('¡Registro exitoso! Ahora puedes iniciar sesión.', 'success')
+        # Enviar correo de bienvenida en segundo plano
+        threading.Thread(target=email_service.enviar_bienvenida_cliente, args=(user,), daemon=True).start()
         return redirect(url_for('auth.login'))
 
     return render_template('auth/register.html', form_data={})
@@ -130,3 +134,62 @@ def _redirect_by_role(user):
         return redirect(url_for('tecnico.dashboard'))
     else:
         return redirect(url_for('solicitante.dashboard'))
+
+
+# ══════════════════════════════════════════════════════
+#  Recuperación de Contraseña
+# ══════════════════════════════════════════════════════
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return _redirect_by_role(current_user)
+
+    if request.method == 'POST':
+        correo = request.form.get('correo', '').strip().lower()
+        user = User.query.filter_by(correo=correo).first()
+
+        # Por seguridad, siempre mostramos el mismo mensaje
+        if user:
+            token = user.generar_reset_token(expiry_minutes=30)
+            db.session.commit()
+            threading.Thread(
+                target=email_service.enviar_reseteo_contrasena,
+                args=(user, token),
+                daemon=True
+            ).start()
+
+        flash('Si ese correo está registrado, recibirás un enlace para restablecer tu contraseña.', 'info')
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/forgot_password.html')
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    user = User.query.filter_by(reset_token=token).first()
+
+    if not user or not user.reset_token_valido():
+        flash('El enlace de restablecimiento es inválido o ha expirado. Solicita uno nuevo.', 'danger')
+        return redirect(url_for('auth.forgot_password'))
+
+    if request.method == 'POST':
+        nueva = request.form.get('nueva_contrasena', '')
+        confirmar = request.form.get('confirmar_contrasena', '')
+
+        if len(nueva) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
+            return render_template('auth/reset_password.html', token=token)
+
+        if nueva != confirmar:
+            flash('Las contraseñas no coinciden.', 'danger')
+            return render_template('auth/reset_password.html', token=token)
+
+        user.set_password(nueva)
+        user.limpiar_reset_token()
+        db.session.commit()
+
+        flash('¡Contraseña restablecida con éxito! Ya puedes iniciar sesión.', 'success')
+        return redirect(url_for('auth.login'))
+
+    return render_template('auth/reset_password.html', token=token)

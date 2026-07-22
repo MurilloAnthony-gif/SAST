@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app
 from flask_login import login_required, current_user
 from app.extensions import db, socketio, mail
-from app.models import Solicitud, EstadoSolicitud, Mensaje, Reporte
+from app.models import Solicitud, EstadoSolicitud, Mensaje, Reporte, User, Rol
 from app.utils import save_file, allowed_file
+from app import email_service
 from flask_mail import Message
 from functools import wraps
+import threading
 
 tecnico_bp = Blueprint('tecnico', __name__, template_folder='templates')
 
@@ -142,41 +144,21 @@ def crear_informe(solicitud_id):
             'mensaje': f'Tu solicitud #{solicitud_id} ha sido resuelta. ¡Por favor califica el servicio!'
         }, room=f'user_{solicitud.id_cliente}')
 
-        # Notificar por email (si está configurado)
-        _enviar_email_resolucion(solicitud)
+        # Notificar por correo al cliente y admins en segundo plano
+        rol_admin = Rol.query.filter_by(nombre_rol='admin').first()
+        admins = User.query.filter_by(id_rol=rol_admin.id_rol).all() if rol_admin else []
+        threading.Thread(
+            target=email_service.enviar_solicitud_resuelta_cliente,
+            args=(solicitud,),
+            daemon=True
+        ).start()
+        threading.Thread(
+            target=email_service.enviar_solicitud_resuelta_admin,
+            args=(solicitud, admins),
+            daemon=True
+        ).start()
 
         flash('¡Informe enviado con éxito! La solicitud ha sido marcada como Resuelta.', 'success')
         return redirect(url_for('tecnico.dashboard'))
 
     return render_template('tecnico/informe.html', solicitud=solicitud)
-
-
-def _enviar_email_resolucion(solicitud):
-    """Envía email de notificación al cliente cuando se resuelve su solicitud."""
-    try:
-        msg = Message(
-            subject=f'✅ Tu solicitud #{solicitud.id_solicitud} ha sido resuelta — SAST',
-            recipients=[solicitud.cliente.correo],
-            html=f'''
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #4f46e5;">¡Tu servicio técnico ha sido completado!</h2>
-                <p>Hola <strong>{solicitud.cliente.nombres}</strong>,</p>
-                <p>El técnico <strong>{solicitud.tecnico.nombre_completo}</strong> ha finalizado 
-                tu solicitud de soporte técnico.</p>
-                <p><strong>Solicitud #:</strong> {solicitud.id_solicitud}<br>
-                <strong>Tipo:</strong> {solicitud.tipo_soporte.nombre_soporte}</p>
-                <p>Ingresa al sistema para <strong>calificar el servicio recibido</strong>.</p>
-                <a href="#" style="background:#4f46e5;color:white;padding:12px 24px;
-                   border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px;">
-                    Calificar Servicio
-                </a>
-                <p style="color:#888;margin-top:24px;font-size:12px;">
-                    Sistema SAST — Servicio Técnico Universitario
-                </p>
-            </div>
-            '''
-        )
-        mail.send(msg)
-    except Exception:
-        # No fallar si el email no está configurado
-        pass
