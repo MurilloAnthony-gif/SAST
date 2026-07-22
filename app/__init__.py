@@ -149,20 +149,20 @@ def _seed_data():
 
     # Admin por defecto (solo si no existe)
     rol_admin = Rol.query.filter_by(nombre_rol='admin').first()
-    if rol_admin and not User.query.filter_by(correo='admin@sast.com').first():
+    if rol_admin and not User.query.filter_by(correo='sastutm@gmail.com').first():
         admin = User(
-            ncedula='0000000000',
-            nombres='Administrador',
-            apellidos='SAST',
-            fecha_nacimiento=date(1990, 1, 1),
-            numero_telefono='0000000000',
-            correo='admin@sast.com',
+            ncedula='0000000000', # Dato por defecto ya que no fue proporcionado
+            nombres='Sast',
+            apellidos='Utm',
+            fecha_nacimiento=date(1990, 1, 1), # Dato por defecto
+            numero_telefono='0000000000', # Dato por defecto
+            correo='sastutm@gmail.com',
             sector='Sistema',
             declaracion_veracidad=True,
             autorizacion_datos=True,
             id_rol=rol_admin.id_rol
         )
-        admin.set_password('Admin123!')
+        admin.set_password('Sast20260722JARJ')
         db.session.add(admin)
         db.session.commit()
-        print('[OK] Admin creado: admin@sast.com / Admin123!')
+        print('[OK] Admin creado: sastutm@gmail.com')
