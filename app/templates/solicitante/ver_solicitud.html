@@ -34,11 +34,19 @@
             </p>
         </div>
 
-        {% if solicitud.estado.nombre_estado == 'Resuelto' and not solicitud.calificacion %}
-        <a href="{{ url_for('solicitante.calificar', solicitud_id=solicitud.id_solicitud) }}"
-           class="btn-primary-custom" id="btnCalificar">
-            <i class="bi bi-star-fill"></i> Calificar Servicio
-        </a>
+        {% if solicitud.estado.nombre_estado == 'Resuelto' %}
+        <div class="d-flex gap-2 flex-wrap">
+            {% if not solicitud.calificacion %}
+            <a href="{{ url_for('solicitante.calificar', solicitud_id=solicitud.id_solicitud) }}"
+               class="btn-primary-custom" id="btnCalificar">
+                <i class="bi bi-star-fill"></i> Calificar Servicio
+            </a>
+            {% endif %}
+            <a href="{{ url_for('solicitante.descargar_pdf', solicitud_id=solicitud.id_solicitud) }}"
+               class="btn-outline-custom" id="btnDescargarPdf">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Informe PDF
+            </a>
+        </div>
         {% endif %}
     </div>
 

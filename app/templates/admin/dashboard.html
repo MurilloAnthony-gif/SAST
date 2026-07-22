@@ -30,64 +30,73 @@
 
     <!-- Total Solicitudes -->
     <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card">
-        <div class="stat-icon purple">
-          <i class="bi bi-ticket-detailed-fill"></i>
+      <a href="{{ url_for('admin.solicitudes') }}" class="text-decoration-none d-block">
+        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
+          <div class="stat-icon purple">
+            <i class="bi bi-ticket-detailed-fill"></i>
+          </div>
+          <div style="position:relative;z-index:1;">
+            <div class="stat-value">{{ total_solicitudes }}</div>
+            <div class="stat-label">Total Solicitudes</div>
+          </div>
+          <i class="bi bi-arrow-up-right ms-auto" style="color:var(--primary-light);font-size:1.2rem;opacity:.8;position:relative;z-index:1;"></i>
         </div>
-        <div style="position:relative;z-index:1;">
-          <div class="stat-value">{{ total_solicitudes }}</div>
-          <div class="stat-label">Total Solicitudes</div>
-        </div>
-        <i class="bi bi-arrow-up-right ms-auto" style="color:var(--primary-light);font-size:1.2rem;opacity:.5;position:relative;z-index:1;"></i>
-      </div>
+      </a>
     </div>
 
     <!-- Total Clientes -->
     <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card">
-        <div class="stat-icon cyan">
-          <i class="bi bi-people-fill"></i>
+      <a href="{{ url_for('admin.usuarios', rol='solicitante') }}" class="text-decoration-none d-block">
+        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
+          <div class="stat-icon cyan">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div style="position:relative;z-index:1;">
+            <div class="stat-value">{{ total_clientes }}</div>
+            <div class="stat-label">Clientes Registrados</div>
+          </div>
+          <i class="bi bi-person-check ms-auto" style="color:var(--secondary);font-size:1.2rem;opacity:.8;position:relative;z-index:1;"></i>
         </div>
-        <div style="position:relative;z-index:1;">
-          <div class="stat-value">{{ total_clientes }}</div>
-          <div class="stat-label">Clientes Registrados</div>
-        </div>
-        <i class="bi bi-person-check ms-auto" style="color:var(--secondary);font-size:1.2rem;opacity:.5;position:relative;z-index:1;"></i>
-      </div>
+      </a>
     </div>
 
     <!-- Total Técnicos -->
     <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card">
-        <div class="stat-icon green">
-          <i class="bi bi-tools"></i>
+      <a href="{{ url_for('admin.usuarios', rol='técnico') }}" class="text-decoration-none d-block">
+        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
+          <div class="stat-icon green">
+            <i class="bi bi-tools"></i>
+          </div>
+          <div style="position:relative;z-index:1;">
+            <div class="stat-value">{{ total_tecnicos }}</div>
+            <div class="stat-label">Técnicos Activos</div>
+          </div>
+          <i class="bi bi-wrench-adjustable ms-auto" style="color:var(--success);font-size:1.2rem;opacity:.8;position:relative;z-index:1;"></i>
         </div>
-        <div style="position:relative;z-index:1;">
-          <div class="stat-value">{{ total_tecnicos }}</div>
-          <div class="stat-label">Técnicos Activos</div>
-        </div>
-        <i class="bi bi-wrench-adjustable ms-auto" style="color:var(--success);font-size:1.2rem;opacity:.5;position:relative;z-index:1;"></i>
-      </div>
+      </a>
     </div>
 
     <!-- Promedio Calificación -->
     <div class="col-12 col-sm-6 col-xl-3">
-      <div class="stat-card">
-        <div class="stat-icon amber">
-          <i class="bi bi-star-fill"></i>
-        </div>
-        <div style="position:relative;z-index:1;">
-          <div class="stat-value d-flex align-items-baseline gap-1">
-            {{ avg_calificacion | round(1) if avg_calificacion else '—' }}
-            {% if avg_calificacion %}
-            <span style="font-size:1rem;color:var(--warning);">
-              {% for i in range(avg_calificacion | round | int) %}<i class="bi bi-star-fill"></i>{% endfor %}
-            </span>
-            {% endif %}
+      <a href="{{ url_for('admin.solicitudes', estado='Resuelto') }}" class="text-decoration-none d-block">
+        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
+          <div class="stat-icon amber">
+            <i class="bi bi-star-fill"></i>
           </div>
-          <div class="stat-label">Promedio Calificación</div>
+          <div style="position:relative;z-index:1;">
+            <div class="stat-value d-flex align-items-baseline gap-1">
+              {{ avg_calificacion | round(1) if avg_calificacion else '—' }}
+              {% if avg_calificacion %}
+              <span style="font-size:1rem;color:var(--warning);">
+                {% for i in range(avg_calificacion | round | int) %}<i class="bi bi-star-fill"></i>{% endfor %}
+              </span>
+              {% endif %}
+            </div>
+            <div class="stat-label">Promedio Calificación</div>
+          </div>
+          <i class="bi bi-arrow-up-right ms-auto" style="color:var(--warning);font-size:1.2rem;opacity:.8;position:relative;z-index:1;"></i>
         </div>
-      </div>
+      </a>
     </div>
 
   </div>
@@ -106,50 +115,58 @@
 
         <!-- Pendiente -->
         <div class="col-6 col-lg-3">
-          <div class="glass-card p-3 text-center" style="border-color:rgba(245,158,11,0.2);">
-            <div style="font-size:2rem;font-weight:800;color:#fcd34d;">
-              {{ conteo_estados.get('Pendiente', 0) }}
+          <a href="{{ url_for('admin.solicitudes', estado='Pendiente') }}" class="text-decoration-none d-block">
+            <div class="glass-card p-3 text-center" style="border-color:rgba(245,158,11,0.2);cursor:pointer;transition:transform 0.2s;">
+              <div style="font-size:2rem;font-weight:800;color:#fcd34d;">
+                {{ conteo_estados.get('Pendiente', 0) }}
+              </div>
+              <div class="mt-1">
+                <span class="badge-status status-pendiente">Pendiente</span>
+              </div>
             </div>
-            <div class="mt-1">
-              <span class="badge-status status-pendiente">Pendiente</span>
-            </div>
-          </div>
+          </a>
         </div>
 
         <!-- En proceso -->
         <div class="col-6 col-lg-3">
-          <div class="glass-card p-3 text-center" style="border-color:rgba(59,130,246,0.2);">
-            <div style="font-size:2rem;font-weight:800;color:#93c5fd;">
-              {{ conteo_estados.get('En proceso', 0) }}
+          <a href="{{ url_for('admin.solicitudes', estado='En proceso') }}" class="text-decoration-none d-block">
+            <div class="glass-card p-3 text-center" style="border-color:rgba(59,130,246,0.2);cursor:pointer;transition:transform 0.2s;">
+              <div style="font-size:2rem;font-weight:800;color:#93c5fd;">
+                {{ conteo_estados.get('En proceso', 0) }}
+              </div>
+              <div class="mt-1">
+                <span class="badge-status status-en-proceso">En Proceso</span>
+              </div>
             </div>
-            <div class="mt-1">
-              <span class="badge-status status-en-proceso">En Proceso</span>
-            </div>
-          </div>
+          </a>
         </div>
 
         <!-- Resuelto -->
         <div class="col-6 col-lg-3">
-          <div class="glass-card p-3 text-center" style="border-color:rgba(16,185,129,0.2);">
-            <div style="font-size:2rem;font-weight:800;color:#6ee7b7;">
-              {{ conteo_estados.get('Resuelto', 0) }}
+          <a href="{{ url_for('admin.solicitudes', estado='Resuelto') }}" class="text-decoration-none d-block">
+            <div class="glass-card p-3 text-center" style="border-color:rgba(16,185,129,0.2);cursor:pointer;transition:transform 0.2s;">
+              <div style="font-size:2rem;font-weight:800;color:#6ee7b7;">
+                {{ conteo_estados.get('Resuelto', 0) }}
+              </div>
+              <div class="mt-1">
+                <span class="badge-status status-resuelto">Resuelto</span>
+              </div>
             </div>
-            <div class="mt-1">
-              <span class="badge-status status-resuelto">Resuelto</span>
-            </div>
-          </div>
+          </a>
         </div>
 
         <!-- Cancelado -->
         <div class="col-6 col-lg-3">
-          <div class="glass-card p-3 text-center" style="border-color:rgba(239,68,68,0.15);">
-            <div style="font-size:2rem;font-weight:800;color:#fca5a5;">
-              {{ conteo_estados.get('Cancelado', 0) }}
+          <a href="{{ url_for('admin.solicitudes', estado='Cancelado') }}" class="text-decoration-none d-block">
+            <div class="glass-card p-3 text-center" style="border-color:rgba(239,68,68,0.15);cursor:pointer;transition:transform 0.2s;">
+              <div style="font-size:2rem;font-weight:800;color:#fca5a5;">
+                {{ conteo_estados.get('Cancelado', 0) }}
+              </div>
+              <div class="mt-1">
+                <span class="badge-status status-cancelado">Cancelado</span>
+              </div>
             </div>
-            <div class="mt-1">
-              <span class="badge-status status-cancelado">Cancelado</span>
-            </div>
-          </div>
+          </a>
         </div>
 
       </div>

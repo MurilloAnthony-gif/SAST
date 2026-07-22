@@ -147,6 +147,14 @@
                         <div style="color:var(--primary-light);font-size:0.8rem;margin-top:4px;">
                             Ver detalle <i class="bi bi-arrow-right"></i>
                         </div>
+                        {% if sol.estado.nombre_estado == 'Resuelto' %}
+                        <object class="d-inline-block mt-1">
+                            <a href="{{ url_for('solicitante.descargar_pdf', solicitud_id=sol.id_solicitud) }}"
+                               class="btn-primary-custom" style="padding:3px 10px;font-size:0.72rem;" title="Descargar Informe PDF">
+                                <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                            </a>
+                        </object>
+                        {% endif %}
                     </div>
                 </div>
             </a>

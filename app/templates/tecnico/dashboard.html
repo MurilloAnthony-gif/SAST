@@ -129,7 +129,15 @@
                         {{ sol.horario }}
                     </div>
                     {% endif %}
-                    <div class="mt-2">
+                    <div class="mt-2 d-flex align-items-center justify-content-end gap-2">
+                        {% if sol.estado.nombre_estado == 'Resuelto' %}
+                        <object>
+                            <a href="{{ url_for('tecnico.descargar_pdf', solicitud_id=sol.id_solicitud) }}"
+                               class="btn-primary-custom" style="padding:4px 10px;font-size:0.75rem;" title="Descargar Informe PDF">
+                                <i class="bi bi-file-earmark-pdf-fill"></i> Informe PDF
+                            </a>
+                        </object>
+                        {% endif %}
                         <i class="bi bi-arrow-right-circle text-gradient" style="font-size:1.1rem;"></i>
                     </div>
                 </div>

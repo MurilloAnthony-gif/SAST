@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app, send_file
 from flask_login import login_required, current_user
 from app.extensions import db, socketio, mail
 from app.models import Solicitud, EstadoSolicitud, Mensaje, Reporte, User, Rol
 from app.utils import save_file, allowed_file
 from app import email_service
+from app.pdf_generator import generar_pdf_solicitud
 from flask_mail import Message
 from functools import wraps
 import threading
@@ -73,6 +74,26 @@ def ver_solicitud(solicitud_id):
     )
 
 
+@tecnico_bp.route('/solicitud/<int:solicitud_id>/pdf')
+@login_required
+@tecnico_required
+def descargar_pdf(solicitud_id):
+    solicitud = Solicitud.query.get_or_404(solicitud_id)
+    if solicitud.id_tecnico != current_user.id_user:
+        abort(403)
+    if solicitud.estado.nombre_estado != 'Resuelto':
+        flash('El informe PDF solo está disponible cuando la asistencia ha finalizado (Resuelto).', 'warning')
+        return redirect(url_for('tecnico.ver_solicitud', solicitud_id=solicitud_id))
+
+    pdf_buffer = generar_pdf_solicitud(solicitud)
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'Informe_Solicitud_{solicitud.id_solicitud}.pdf'
+    )
+
+
 @tecnico_bp.route('/solicitud/<int:solicitud_id>/informe', methods=['GET', 'POST'])
 @login_required
 @tecnico_required
@@ -92,6 +113,7 @@ def crear_informe(solicitud_id):
 
     if request.method == 'POST':
         descripcion_trabajo = request.form.get('descripcion_trabajo', '').strip()
+        recomendaciones = request.form.get('recomendaciones', '').strip()
         imagen_1 = request.files.get('imagen_evidencia_1')
         imagen_2 = request.files.get('imagen_evidencia_2')
 
@@ -128,6 +150,7 @@ def crear_informe(solicitud_id):
             id_solicitud=solicitud_id,
             id_tecnico=current_user.id_user,
             descripcion_trabajo=descripcion_trabajo,
+            recomendaciones=recomendaciones or None,
             imagen_evidencia_1=path_img1,
             imagen_evidencia_2=path_img2
         )

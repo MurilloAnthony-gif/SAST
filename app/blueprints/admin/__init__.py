@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify, send_file
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import (
@@ -6,6 +6,7 @@ from app.models import (
     CalificacionTecnico, DetallesTecnico
 )
 from app import email_service
+from app.pdf_generator import generar_pdf_solicitud
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import func
@@ -157,6 +158,24 @@ def asignar_tecnico(solicitud_id):
 def ver_solicitud(solicitud_id):
     solicitud = Solicitud.query.get_or_404(solicitud_id)
     return render_template('admin/ver_solicitud.html', solicitud=solicitud)
+
+
+@admin_bp.route('/solicitudes/<int:solicitud_id>/pdf')
+@login_required
+@admin_required
+def descargar_pdf(solicitud_id):
+    solicitud = Solicitud.query.get_or_404(solicitud_id)
+    if solicitud.estado.nombre_estado != 'Resuelto':
+        flash('El informe PDF solo está disponible cuando la asistencia ha finalizado (Resuelto).', 'warning')
+        return redirect(url_for('admin.ver_solicitud', solicitud_id=solicitud_id))
+
+    pdf_buffer = generar_pdf_solicitud(solicitud)
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'Informe_Solicitud_{solicitud.id_solicitud}.pdf'
+    )
 
 
 @admin_bp.route('/usuarios')

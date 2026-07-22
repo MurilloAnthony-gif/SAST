@@ -10,3 +10,4 @@ python-dotenv==1.0.1
 # eventlet==0.36.1  # Not compatible with Python 3.14, using threading mode instead
 Pillow==11.3.0
 WTForms==3.1.2
+reportlab==5.0.0

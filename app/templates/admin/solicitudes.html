@@ -162,6 +162,11 @@
                    class="btn-primary-custom" style="padding:5px 12px;font-size:0.78rem;">
                   <i class="bi bi-person-check"></i> Asignar
                 </a>
+                {% elif sol.estado.nombre_estado == 'Resuelto' %}
+                <a href="{{ url_for('admin.descargar_pdf', solicitud_id=sol.id_solicitud) }}"
+                   class="btn-primary-custom" style="padding:5px 12px;font-size:0.78rem;" title="Descargar Informe PDF">
+                  <i class="bi bi-file-earmark-pdf-fill"></i> Informe PDF
+                </a>
                 {% endif %}
               </div>
             </td>

@@ -21,7 +21,7 @@
           <p>Vista detallada de administrador</p>
         </div>
       </div>
-      <!-- Estado + Assign Button -->
+      <!-- Estado + Assign / Download Button -->
       <div class="d-flex gap-2 align-items-center">
         {% set estado_slug = solicitud.estado.nombre_estado | lower | replace(' ', '-') %}
         <span class="badge-status status-{{ estado_slug }}" style="font-size:0.82rem;padding:6px 14px;">
@@ -30,6 +30,10 @@
         {% if solicitud.estado.nombre_estado in ['Pendiente', 'En proceso'] %}
         <a href="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom" style="padding:8px 18px;">
           <i class="bi bi-person-check-fill"></i> Asignar
+        </a>
+        {% elif solicitud.estado.nombre_estado == 'Resuelto' %}
+        <a href="{{ url_for('admin.descargar_pdf', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom" style="padding:8px 18px;">
+          <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Informe
         </a>
         {% endif %}
       </div>
@@ -143,6 +147,13 @@
         <div class="detail-value">{{ solicitud.reporte.descripcion_trabajo }}</div>
       </div>
 
+      {% if solicitud.reporte.recomendaciones %}
+      <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-lightbulb-fill"></i> Recomendaciones</div>
+        <div class="detail-value">{{ solicitud.reporte.recomendaciones }}</div>
+      </div>
+      {% endif %}
+
       <div class="detail-row">
         <div class="detail-label"><i class="bi bi-calendar-check"></i> Fecha Reporte</div>
         <div class="detail-value">{{ solicitud.reporte.fecha_creacion.strftime('%d de %B de %Y, %H:%M') }}</div>
@@ -235,6 +246,10 @@
     {% if solicitud.estado.nombre_estado in ['Pendiente', 'En proceso'] %}
     <a href="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom">
       <i class="bi bi-person-check-fill"></i> Asignar / Reasignar Técnico
+    </a>
+    {% elif solicitud.estado.nombre_estado == 'Resuelto' %}
+    <a href="{{ url_for('admin.descargar_pdf', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom">
+      <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Informe PDF
     </a>
     {% endif %}
   </div>

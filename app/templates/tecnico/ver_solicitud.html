@@ -37,12 +37,18 @@
             </div>
         </div>
 
-        {# Informe button — only when not closed #}
+        {# Informe button — if open, create report; if resolved, download PDF #}
         {% if not is_closed %}
         <a href="{{ url_for('tecnico.crear_informe', solicitud_id=solicitud.id_solicitud) }}"
            class="btn-primary-custom">
             <i class="bi bi-file-earmark-medical-fill"></i>
             Crear Informe y Cerrar Ticket
+        </a>
+        {% elif solicitud.estado.nombre_estado == 'Resuelto' %}
+        <a href="{{ url_for('tecnico.descargar_pdf', solicitud_id=solicitud.id_solicitud) }}"
+           class="btn-primary-custom">
+            <i class="bi bi-file-earmark-pdf-fill"></i>
+            Descargar Informe PDF
         </a>
         {% endif %}
     </div>
