@@ -57,20 +57,35 @@ def ver_solicitud(solicitud_id):
     if solicitud.id_tecnico != current_user.id_user:
         abort(403)
 
+    # Mensajes públicos (cliente <-> técnico)
     mensajes = Mensaje.query.filter_by(
-        id_solicitud=solicitud_id
+        id_solicitud=solicitud_id,
+        canal='publico'
     ).order_by(Mensaje.fecha_envio.asc()).all()
 
-    # Marcar como leídos
+    # Mensajes internos (admin <-> técnico)
+    mensajes_internos = Mensaje.query.filter_by(
+        id_solicitud=solicitud_id,
+        canal='interno'
+    ).order_by(Mensaje.fecha_envio.asc()).all()
+
+    # Marcar mensajes públicos como leídos
     for msg in mensajes:
+        if msg.id_usuario_remitente != current_user.id_user:
+            msg.leido = True
+    # Marcar mensajes internos como leídos
+    for msg in mensajes_internos:
         if msg.id_usuario_remitente != current_user.id_user:
             msg.leido = True
     db.session.commit()
 
+    is_closed = solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado']
     return render_template(
         'tecnico/ver_solicitud.html',
         solicitud=solicitud,
-        mensajes=mensajes
+        mensajes=mensajes,
+        mensajes_internos=mensajes_internos,
+        is_closed=is_closed
     )
 
 

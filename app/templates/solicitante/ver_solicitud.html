@@ -34,20 +34,26 @@
             </p>
         </div>
 
-        {% if solicitud.estado.nombre_estado == 'Resuelto' %}
-        <div class="d-flex gap-2 flex-wrap">
-            {% if not solicitud.calificacion %}
-            <a href="{{ url_for('solicitante.calificar', solicitud_id=solicitud.id_solicitud) }}"
-               class="btn-primary-custom" id="btnCalificar">
-                <i class="bi bi-star-fill"></i> Calificar Servicio
-            </a>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            {% if solicitud.estado.nombre_estado == 'Resuelto' %}
+                {% if not solicitud.calificacion %}
+                <a href="{{ url_for('solicitante.calificar', solicitud_id=solicitud.id_solicitud) }}"
+                   class="btn-primary-custom" id="btnCalificar">
+                    <i class="bi bi-star-fill"></i> Calificar Servicio
+                </a>
+                {% endif %}
+                {% if solicitud.reporte %}
+                <a href="{{ url_for('solicitante.descargar_informe_tecnico', solicitud_id=solicitud.id_solicitud) }}"
+                   class="btn-outline-custom" title="Descargar informe del técnico con las recomendaciones">
+                    <i class="bi bi-file-earmark-check-fill"></i> Descargar Informe Técnico
+                </a>
+                {% endif %}
             {% endif %}
             <a href="{{ url_for('solicitante.descargar_pdf', solicitud_id=solicitud.id_solicitud) }}"
-               class="btn-outline-custom" id="btnDescargarPdf">
-                <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Informe PDF
+               class="btn-outline-custom" id="btnDescargarPdf" title="Descargar comprobante impreso para presentar al técnico">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Ticket PDF
             </a>
         </div>
-        {% endif %}
     </div>
 
     <div class="row g-4">
@@ -137,40 +143,7 @@
             </div>
             {% endif %}
 
-            <!-- Reporte del técnico -->
-            {% if solicitud.reporte %}
-            <div class="section-card">
-                <div class="section-card-header">
-                    <span style="font-weight:700;"><i class="bi bi-file-text me-2" style="color:var(--success);"></i>Informe Técnico</span>
-                    <span style="font-size:0.75rem;color:var(--text-muted);">
-                        {{ solicitud.reporte.fecha_creacion.strftime('%d/%m/%Y') }}
-                    </span>
-                </div>
-                <div class="section-card-body">
-                    <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:16px;">
-                        {{ solicitud.reporte.descripcion_trabajo }}
-                    </p>
-                    <div class="evidence-grid">
-                        <div>
-                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">
-                                ESTADO INICIAL
-                            </div>
-                            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_1) }}"
-                                 class="evidence-img" alt="Estado inicial del equipo"
-                                 onclick="window.open(this.src,'_blank')">
-                        </div>
-                        <div>
-                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">
-                                ESTADO ENTREGADO
-                            </div>
-                            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_2) }}"
-                                 class="evidence-img" alt="Estado al entregar el equipo"
-                                 onclick="window.open(this.src,'_blank')">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
+            <!-- Reporte del técnico removido de la UI -->
         </div>
 
         <!-- RIGHT: Chat -->

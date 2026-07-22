@@ -42,9 +42,10 @@
     {% set en_proceso = solicitudes|selectattr('estado.nombre_estado','equalto','En proceso')|list|length %}
     {% set resueltas = solicitudes|selectattr('estado.nombre_estado','equalto','Resuelto')|list|length %}
 
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4" id="statsRow">
         <div class="col-6 col-md-3">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('')" id="btn-all"
+                 style="cursor:pointer;" title="Ver todas">
                 <div class="stat-icon purple"><i class="bi bi-ticket-detailed"></i></div>
                 <div>
                     <div class="stat-value">{{ total }}</div>
@@ -53,7 +54,8 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('Pendiente')" id="btn-Pendiente"
+                 style="cursor:pointer;" title="Ver pendientes">
                 <div class="stat-icon amber"><i class="bi bi-hourglass-split"></i></div>
                 <div>
                     <div class="stat-value">{{ pendientes }}</div>
@@ -62,7 +64,8 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('En proceso')" id="btn-En proceso"
+                 style="cursor:pointer;" title="Ver en proceso">
                 <div class="stat-icon cyan"><i class="bi bi-gear-fill"></i></div>
                 <div>
                     <div class="stat-value">{{ en_proceso }}</div>
@@ -71,7 +74,8 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('Resuelto')" id="btn-Resuelto"
+                 style="cursor:pointer;" title="Ver resueltas">
                 <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
                 <div>
                     <div class="stat-value">{{ resueltas }}</div>
@@ -101,7 +105,8 @@
             }.get(sol.estado.nombre_estado, 'status-pendiente') %}
 
             <a href="{{ url_for('solicitante.ver_solicitud', solicitud_id=sol.id_solicitud) }}"
-               class="solicitud-card text-decoration-none" id="sol-{{ sol.id_solicitud }}">
+               class="solicitud-card text-decoration-none" id="sol-{{ sol.id_solicitud }}"
+               data-estado="{{ sol.estado.nombre_estado }}">
                 <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
                     <div class="d-flex align-items-start gap-3">
                         <div style="width:48px;height:48px;background:var(--gradient-brand);border-radius:12px;
@@ -147,14 +152,12 @@
                         <div style="color:var(--primary-light);font-size:0.8rem;margin-top:4px;">
                             Ver detalle <i class="bi bi-arrow-right"></i>
                         </div>
-                        {% if sol.estado.nombre_estado == 'Resuelto' %}
                         <object class="d-inline-block mt-1">
                             <a href="{{ url_for('solicitante.descargar_pdf', solicitud_id=sol.id_solicitud) }}"
-                               class="btn-primary-custom" style="padding:3px 10px;font-size:0.72rem;" title="Descargar Informe PDF">
-                                <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                               class="btn-outline-custom" style="padding:3px 10px;font-size:0.72rem;" title="Descargar Comprobante Ticket PDF">
+                                <i class="bi bi-file-earmark-pdf-fill"></i> PDF Ticket
                             </a>
                         </object>
-                        {% endif %}
                     </div>
                 </div>
             </a>
@@ -173,4 +176,45 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSS_ACTIVE = 'box-shadow:0 0 0 2px var(--primary),0 4px 20px var(--primary-glow);border-color:var(--primary)!important;';
+let filtroActivo = '';
+
+function filtrarSolicitudes(estado) {
+    filtroActivo = estado;
+    const cards = document.querySelectorAll('.solicitud-card');
+    let visibles = 0;
+    cards.forEach(c => {
+        const e = c.getAttribute('data-estado') || '';
+        const show = (!estado || e === estado);
+        c.style.display = show ? '' : 'none';
+        if (show) visibles++;
+    });
+    // Resaltar botón activo
+    document.querySelectorAll('.stat-btn').forEach(b => {
+        b.style.cssText = b.style.cssText.replace(/box-shadow:[^;]+;?/g,'').replace(/border-color:[^;]+!important;?/g,'');
+    });
+    const btnId = estado ? 'btn-' + estado : 'btn-all';
+    const activeBtn = document.getElementById(btnId);
+    if (activeBtn) activeBtn.style.cssText += CSS_ACTIVE;
+    // Mensaje sin resultados
+    let noRes = document.getElementById('sinResultadosFiltro');
+    if (!noRes) {
+        noRes = document.createElement('div');
+        noRes.id = 'sinResultadosFiltro';
+        noRes.className = 'empty-state py-4';
+        noRes.innerHTML = '<div class="empty-state-icon"><i class="bi bi-funnel"></i></div><h3>Sin resultados</h3><p>No tienes solicitudes con ese estado.</p>';
+        document.querySelector('.p-3.d-flex').appendChild(noRes);
+    }
+    noRes.style.display = visibles === 0 ? '' : 'none';
+}
+// Activar Total por defecto
+document.addEventListener('DOMContentLoaded', () => {
+    const active = document.getElementById('btn-all');
+    if (active) active.style.cssText += CSS_ACTIVE;
+});
+</script>
 {% endblock %}

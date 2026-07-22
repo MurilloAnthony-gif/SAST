@@ -4,7 +4,7 @@ from app.extensions import db
 from app.models import Solicitud, EstadoSolicitud, TipoSoporte, Mensaje, CalificacionTecnico, User, Rol
 from app.utils import save_file, allowed_file
 from app import email_service
-from app.pdf_generator import generar_pdf_solicitud
+from app.pdf_generator import generar_pdf_solicitud, generar_pdf_cliente
 from functools import wraps
 from datetime import datetime
 import threading
@@ -111,8 +111,10 @@ def ver_solicitud(solicitud_id):
     if solicitud.id_cliente != current_user.id_user:
         abort(403)
 
+    # Filtrar estrictamente solo mensajes del canal público (cliente <-> técnico)
     mensajes = Mensaje.query.filter_by(
-        id_solicitud=solicitud_id
+        id_solicitud=solicitud_id,
+        canal='publico'
     ).order_by(Mensaje.fecha_envio.asc()).all()
 
     # Marcar mensajes como leídos
@@ -135,16 +137,39 @@ def descargar_pdf(solicitud_id):
     solicitud = Solicitud.query.get_or_404(solicitud_id)
     if solicitud.id_cliente != current_user.id_user:
         abort(403)
-    if solicitud.estado.nombre_estado != 'Resuelto':
-        flash('El informe PDF solo está disponible cuando la asistencia ha finalizado (Resuelto).', 'warning')
-        return redirect(url_for('solicitante.ver_solicitud', solicitud_id=solicitud_id))
 
-    pdf_buffer = generar_pdf_solicitud(solicitud)
+    # El comprobante PDF está disponible para el cliente para respaldar su ticket
+    pdf_buffer = generar_pdf_cliente(solicitud)
     return send_file(
         pdf_buffer,
         mimetype='application/pdf',
         as_attachment=True,
-        download_name=f'Informe_Solicitud_{solicitud.id_solicitud}.pdf'
+        download_name=f'Comprobante_Ticket_{solicitud.id_solicitud}.pdf'
+    )
+
+@solicitante_bp.route('/solicitud/<int:solicitud_id>/informe_pdf')
+@login_required
+@solicitante_required
+def descargar_informe_tecnico(solicitud_id):
+    solicitud = Solicitud.query.get_or_404(solicitud_id)
+    if solicitud.id_cliente != current_user.id_user:
+        abort(403)
+    
+    if solicitud.estado.nombre_estado != 'Resuelto':
+        flash('El informe técnico solo está disponible cuando la solicitud ha sido resuelta.', 'warning')
+        return redirect(url_for('solicitante.ver_solicitud', solicitud_id=solicitud_id))
+    
+    if not solicitud.reporte:
+        flash('El técnico aún no ha generado el informe.', 'warning')
+        return redirect(url_for('solicitante.ver_solicitud', solicitud_id=solicitud_id))
+
+    # Genera el PDF con la información del técnico y las recomendaciones, sin anexos ni firmas
+    pdf_buffer = generar_pdf_solicitud(solicitud, incluir_anexos_firmas=False)
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'Informe_Tecnico_{solicitud.id_solicitud}.pdf'
     )
 
 

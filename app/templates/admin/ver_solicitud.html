@@ -21,12 +21,18 @@
           <p>Vista detallada de administrador</p>
         </div>
       </div>
-      <!-- Estado + Assign / Download Button -->
-      <div class="d-flex gap-2 align-items-center">
+      <!-- Estado + Action Buttons -->
+      <div class="d-flex gap-2 align-items-center flex-wrap">
         {% set estado_slug = solicitud.estado.nombre_estado | lower | replace(' ', '-') %}
         <span class="badge-status status-{{ estado_slug }}" style="font-size:0.82rem;padding:6px 14px;">
           {{ solicitud.estado.nombre_estado }}
         </span>
+        {% if solicitud.tecnico %}
+        <a href="{{ url_for('admin.chat_solicitud', solicitud_id=solicitud.id_solicitud) }}"
+           class="btn-outline-custom" style="padding:8px 18px;">
+          <i class="bi bi-chat-dots-fill"></i> Chat Técnico
+        </a>
+        {% endif %}
         {% if solicitud.estado.nombre_estado in ['Pendiente', 'En proceso'] %}
         <a href="{{ url_for('admin.asignar_tecnico', solicitud_id=solicitud.id_solicitud) }}" class="btn-primary-custom" style="padding:8px 18px;">
           <i class="bi bi-person-check-fill"></i> Asignar
@@ -130,68 +136,7 @@
   </div>
   <!-- END MAIN DETAILS -->
 
-  <!-- ===== REPORTE ===== -->
-  {% if solicitud.reporte %}
-  <div class="section-card mb-4">
-    <div class="section-card-header">
-      <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-file-earmark-check-fill" style="color:var(--success);"></i>
-        <span style="font-weight:700;">Reporte Técnico</span>
-      </div>
-      <span class="badge-status status-resuelto" style="font-size:0.75rem;">Completado</span>
-    </div>
-    <div class="section-card-body">
-
-      <div class="detail-row">
-        <div class="detail-label"><i class="bi bi-card-text"></i> Diagnóstico</div>
-        <div class="detail-value">{{ solicitud.reporte.descripcion_trabajo }}</div>
-      </div>
-
-      {% if solicitud.reporte.recomendaciones %}
-      <div class="detail-row">
-        <div class="detail-label"><i class="bi bi-lightbulb-fill"></i> Recomendaciones</div>
-        <div class="detail-value">{{ solicitud.reporte.recomendaciones }}</div>
-      </div>
-      {% endif %}
-
-      <div class="detail-row">
-        <div class="detail-label"><i class="bi bi-calendar-check"></i> Fecha Reporte</div>
-        <div class="detail-value">{{ solicitud.reporte.fecha_creacion.strftime('%d de %B de %Y, %H:%M') }}</div>
-      </div>
-
-      <!-- Evidence Images -->
-      {% if solicitud.reporte.imagen_evidencia_1 or solicitud.reporte.imagen_evidencia_2 %}
-      <div class="mt-4">
-        <div class="form-label mb-3"><i class="bi bi-images me-1"></i> Evidencia Fotográfica</div>
-        <div class="evidence-grid">
-          {% if solicitud.reporte.imagen_evidencia_1 %}
-          <div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
-              <i class="bi bi-camera me-1"></i> Estado Inicial
-            </div>
-            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_1) }}"
-                 alt="Estado inicial" class="evidence-img"
-                 onclick="window.open(this.src, '_blank')">
-          </div>
-          {% endif %}
-          {% if solicitud.reporte.imagen_evidencia_2 %}
-          <div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
-              <i class="bi bi-camera-fill me-1"></i> Estado Entregado
-            </div>
-            <img src="{{ url_for('static', filename=solicitud.reporte.imagen_evidencia_2) }}"
-                 alt="Estado entregado" class="evidence-img"
-                 onclick="window.open(this.src, '_blank')">
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
-
-    </div>
-  </div>
-  {% endif %}
-  <!-- END REPORTE -->
+  <!-- Reporte técnico removido de la UI según solicitud del usuario -->
 
   <!-- ===== CALIFICACIÓN ===== -->
   {% if solicitud.calificacion %}

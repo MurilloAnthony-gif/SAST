@@ -12,6 +12,8 @@ class Mensaje(db.Model):
     archivo_adjunto = db.Column(db.String(255), nullable=True)
     fecha_envio = db.Column(db.DateTime, default=datetime.utcnow)
     leido = db.Column(db.Boolean, default=False)
+    canal = db.Column(db.String(20), default='publico', nullable=False)
+    # canal: 'publico' = cliente<->tecnico | 'interno' = admin<->tecnico
 
     def to_dict(self):
         return {
@@ -21,7 +23,8 @@ class Mensaje(db.Model):
             'fecha_envio': self.fecha_envio.strftime('%d/%m/%Y %H:%M'),
             'remitente': self.remitente.nombre_completo,
             'id_remitente': self.id_usuario_remitente,
-            'leido': self.leido
+            'leido': self.leido,
+            'canal': self.canal
         }
 
     def __repr__(self):

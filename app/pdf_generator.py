@@ -3,365 +3,595 @@ import os
 from datetime import datetime
 from flask import current_app
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, cm
 from reportlab.lib import colors
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    Image, HRFlowable, KeepTogether, PageBreak
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 
+# ─── Paleta de colores institucional ───────────────────────────────────────────
+AZUL_UTM    = colors.HexColor('#003087')   # Azul oscuro institucional
+AZUL_CLARO  = colors.HexColor('#E8EEF7')   # Fondo cabeceras de tabla
+VERDE_OK    = colors.HexColor('#1A7A4A')   # Estado resuelto
+BORDE       = colors.HexColor('#B0BEC5')   # Gris neutro para bordes
+FONDO_CELD  = colors.HexColor('#F5F7FA')   # Fondo alterno
+NEGRO       = colors.HexColor('#1A1A2E')
+GRIS_TEXT   = colors.HexColor('#455A64')
 
-def generar_pdf_solicitud(solicitud):
+
+def _styles():
+    """Devuelve un dict con todos los estilos del documento."""
+    base = getSampleStyleSheet()
+
+    def ps(name, **kw):
+        kw.setdefault('fontName', 'Helvetica')
+        kw.setdefault('fontSize', 9)
+        kw.setdefault('leading', 13)
+        kw.setdefault('textColor', NEGRO)
+        return ParagraphStyle(name, parent=base['Normal'], **kw)
+
+    return {
+        'titulo_doc':   ps('TitDoc',   fontName='Helvetica-Bold', fontSize=13,
+                           textColor=AZUL_UTM, alignment=TA_CENTER, spaceAfter=2),
+        'subtitulo':    ps('SubTit',   fontSize=9, textColor=GRIS_TEXT,
+                           alignment=TA_CENTER),
+        'seccion':      ps('Sec',      fontName='Helvetica-Bold', fontSize=10,
+                           textColor=colors.white, alignment=TA_CENTER),
+        'label':        ps('Lbl',      fontName='Helvetica-Bold', fontSize=8.5,
+                           textColor=AZUL_UTM),
+        'valor':        ps('Val',      fontSize=8.5, textColor=NEGRO),
+        'cuerpo':       ps('Body',     fontSize=9, leading=14,
+                           alignment=TA_JUSTIFY, textColor=NEGRO),
+        'firma_label':  ps('FirmaL',   fontName='Helvetica-Bold', fontSize=8,
+                           textColor=GRIS_TEXT, alignment=TA_CENTER),
+        'pie':          ps('Pie',      fontSize=7.5, textColor=GRIS_TEXT,
+                           alignment=TA_CENTER),
+        'num_pag':      ps('NumPag',   fontName='Helvetica-Bold', fontSize=8,
+                           textColor=AZUL_UTM, alignment=TA_RIGHT),
+    }
+
+
+def _header_bar(text, s):
+    """Barra de sección azul con texto blanco."""
+    t = Table([[Paragraph(text, s['seccion'])]], colWidths=[540])
+    t.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), AZUL_UTM),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+    ]))
+    return t
+
+
+def _info_table(rows, s, col_widths=None):
+    """Tabla de datos con etiqueta/valor en pares."""
+    cw = col_widths or [110, 160, 110, 160]
+    data = []
+    for row in rows:
+        data.append([Paragraph(c, s['label'] if i % 2 == 0 else s['valor'])
+                     for i, c in enumerate(row)])
+    t = Table(data, colWidths=cw)
+    t.setStyle(TableStyle([
+        ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+        ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+        ('BACKGROUND',    (0, 0), (-1, -1), FONDO_CELD),
+        ('ROWBACKGROUNDS',(0, 0), (-1, -1), [colors.white, FONDO_CELD]),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+    ]))
+    return t
+
+
+def _text_block(content, s, bg=None):
+    """Bloque de texto con borde suave."""
+    if not content:
+        content = '<i>No registrado.</i>'
+    inner = Table([[Paragraph(content, s['cuerpo'])]], colWidths=[520])
+    inner.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), bg or colors.white),
+        ('BOX',           (0, 0), (-1, -1), 0.7, BORDE),
+        ('TOPPADDING',    (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 10),
+    ]))
+    return inner
+
+
+def generar_pdf_solicitud(solicitud, incluir_anexos_firmas=True):
     """
-    Genera un informe técnico en formato PDF para una solicitud resuelta.
-    Retorna un buffer BytesIO con el contenido del PDF.
+    Genera el INFORME TÉCNICO DE MANTENIMIENTO en PDF.
+    Retorna un buffer BytesIO con el contenido listo para enviar.
+    Formato: Universidad Técnica de Manabí — SAST
     """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        leftMargin=36,
-        rightMargin=36,
-        topMargin=36,
-        bottomMargin=36
+        leftMargin=36, rightMargin=36,
+        topMargin=36,  bottomMargin=48
     )
 
-    styles = getSampleStyleSheet()
+    s  = _styles()
+    el = []   # elementos del documento
 
-    # Custom styles
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=18,
-        leading=22,
-        textColor=colors.HexColor('#1E1B4B'),
-        alignment=TA_LEFT
-    )
+    # ─────────────────────────────────────────────────────────────────
+    # ENCABEZADO INSTITUCIONAL
+    # ─────────────────────────────────────────────────────────────────
+    fecha_emision = datetime.now().strftime('%d/%m/%Y  %H:%M')
 
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor('#475569'),
-        alignment=TA_LEFT
-    )
+    # Intentar cargar logo si existe
+    logo_path = os.path.join(current_app.root_path, 'static', 'img', 'utm_logo.png')
+    logo_cell = []
+    if os.path.exists(logo_path):
+        try:
+            logo_cell = [Image(logo_path, width=1.1*inch, height=1.1*inch)]
+        except Exception:
+            logo_cell = [Paragraph('', s['subtitulo'])]
+    else:
+        logo_cell = [Paragraph('', s['subtitulo'])]
 
-    header_right_style = ParagraphStyle(
-        'HeaderRight',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=15,
-        textColor=colors.HexColor('#4338CA'),
-        alignment=TA_RIGHT
-    )
-
-    section_heading = ParagraphStyle(
-        'SectionHeading',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=16,
-        textColor=colors.HexColor('#1E1B4B'),
-        spaceBefore=8,
-        spaceAfter=4
-    )
-
-    label_style = ParagraphStyle(
-        'CellLabel',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=12,
-        textColor=colors.HexColor('#334155')
-    )
-
-    value_style = ParagraphStyle(
-        'CellValue',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9,
-        leading=12,
-        textColor=colors.HexColor('#0F172A')
-    )
-
-    body_text = ParagraphStyle(
-        'BodyTextCustom',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9.5,
-        leading=14,
-        textColor=colors.HexColor('#1E293B'),
-        alignment=TA_JUSTIFY
-    )
-
-    elements = []
-
-    # --- ENCABEZADO ---
-    header_left = [
-        Paragraph("SAST — Servicio Técnico", title_style),
-        Paragraph("Sistema de Agendamiento de Servicio Técnico", subtitle_style)
-    ]
-    fecha_str = datetime.now().strftime('%d/%m/%Y %H:%M')
-    header_right = [
-        Paragraph("INFORME TÉCNICO DE SERVICIO", header_right_style),
-        Paragraph(f"Solicitud #{solicitud.id_solicitud}", ParagraphStyle('HRightSub', parent=header_right_style, fontSize=10, textColor=colors.HexColor('#6366F1'))),
-        Paragraph(f"Fecha emisión: {fecha_str}", ParagraphStyle('HRightDate', parent=subtitle_style, alignment=TA_RIGHT, fontSize=8))
+    titulo_cell = [
+        Paragraph('UNIVERSIDAD TÉCNICA DE MANABÍ', ParagraphStyle(
+            'UTM', fontName='Helvetica-Bold', fontSize=11,
+            textColor=AZUL_UTM, alignment=TA_CENTER, leading=14)),
+        Paragraph('Facultad de Ciencias Informáticas', ParagraphStyle(
+            'Fac', fontName='Helvetica', fontSize=8.5,
+            textColor=GRIS_TEXT, alignment=TA_CENTER, leading=12)),
+        Spacer(1, 4),
+        Paragraph('INFORME TÉCNICO DE MANTENIMIENTO', ParagraphStyle(
+            'ITitle', fontName='Helvetica-Bold', fontSize=12,
+            textColor=NEGRO, alignment=TA_CENTER, leading=16)),
     ]
 
-    header_table = Table(
-        [[header_left, header_right]],
-        colWidths=[320, 220]
+    codigo_cell = [
+        Paragraph(f'N° <b>{solicitud.id_solicitud:04d}</b>',
+                  ParagraphStyle('Cod', fontName='Helvetica-Bold', fontSize=10,
+                                 textColor=AZUL_UTM, alignment=TA_RIGHT)),
+        Paragraph(f'Emisión: {fecha_emision}',
+                  ParagraphStyle('Fecha', fontSize=7.5,
+                                 textColor=GRIS_TEXT, alignment=TA_RIGHT)),
+    ]
+
+    ht = Table([[logo_cell, titulo_cell, codigo_cell]], colWidths=[80, 370, 130])
+    ht.setStyle(TableStyle([
+        ('VALIGN',  (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',   (0, 0), (0, 0), 'CENTER'),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    el.append(ht)
+    el.append(HRFlowable(width='100%', thickness=2,
+                         color=AZUL_UTM, spaceBefore=6, spaceAfter=8))
+
+    # ─────────────────────────────────────────────────────────────────
+    # DATOS GENERALES DEL SERVICIO SOLICITADO
+    # ─────────────────────────────────────────────────────────────────
+    el.append(_header_bar('Datos Generales del Servicio Solicitado', s))
+    el.append(Spacer(1, 4))
+
+    cliente = solicitud.cliente
+    tecnico  = solicitud.tecnico
+
+    fecha_creacion  = solicitud.fecha_creacion.strftime('%d/%m/%Y') if solicitud.fecha_creacion else '—'
+    hora_creacion   = solicitud.fecha_creacion.strftime('%H:%M:%S')  if solicitud.fecha_creacion else '—'
+    fecha_atencion  = solicitud.fecha_atencion.strftime('%d/%m/%Y')  if solicitud.fecha_atencion else '—'
+    horario         = solicitud.horario_solicitado or '—'
+    tipo_servicio   = solicitud.tipo_soporte.nombre_soporte          if solicitud.tipo_soporte else '—'
+    sector_cliente  = cliente.sector                                  if cliente else '—'
+    tel_cliente     = cliente.numero_telefono                         if cliente else '—'
+    correo_cliente  = cliente.correo                                  if cliente else '—'
+    nombre_cliente  = cliente.nombre_completo                         if cliente else '—'
+    cedula_cliente  = cliente.ncedula                                 if cliente else '—'
+    nombre_tecnico  = tecnico.nombre_completo                         if tecnico else 'No asignado'
+
+    el.append(_info_table([
+        ['Usuario Solicitante / Contratista:', nombre_cliente,
+         'Fecha Recepción Equipo:', fecha_creacion],
+        ['Cédula:', cedula_cliente,
+         'Hora:', hora_creacion],
+        ['Técnico Asignado:', nombre_tecnico,
+         'Fecha de Atención:', fecha_atencion],
+        ['Lugar donde requiere el servicio:', sector_cliente,
+         'Horario Solicitado:', horario],
+        ['Correo del Usuario:', correo_cliente,
+         'Teléfono Usuario:', tel_cliente],
+    ], s))
+    el.append(Spacer(1, 6))
+
+    # Tabla de tipo de servicio
+    header_ts = Table(
+        [[Paragraph('Tipo de Servicio', s['label']),
+          Paragraph('Información Preliminar de la Solicitud', s['label'])]],
+        colWidths=[160, 380]
     )
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
+    header_ts.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), AZUL_CLARO),
+        ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+        ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    elements.append(header_table)
-    elements.append(Spacer(1, 8))
-    elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#6366F1'), spaceBefore=4, spaceAfter=12))
+    el.append(header_ts)
 
-    # --- RESUMEN GENERAL Y ESTADO ---
-    elements.append(Paragraph("1. Información General de la Solicitud", section_heading))
-
-    fecha_creacion_str = solicitud.fecha_creacion.strftime('%d/%m/%Y %H:%M') if solicitud.fecha_creacion else '—'
-    fecha_atencion_str = solicitud.fecha_atencion.strftime('%d/%m/%Y') if solicitud.fecha_atencion else '—'
-    horario_str = solicitud.horario_solicitado or '—'
-    tipo_soporte_str = solicitud.tipo_soporte.nombre_soporte if solicitud.tipo_soporte else '—'
-    estado_str = solicitud.estado.nombre_estado if solicitud.estado else '—'
-
-    info_gen_data = [
-        [
-            Paragraph("<b>N° Solicitud:</b>", label_style), Paragraph(f"#{solicitud.id_solicitud}", value_style),
-            Paragraph("<b>Tipo de Servicio:</b>", label_style), Paragraph(tipo_soporte_str, value_style)
-        ],
-        [
-            Paragraph("<b>Fecha Registro:</b>", label_style), Paragraph(fecha_creacion_str, value_style),
-            Paragraph("<b>Estado Ticket:</b>", label_style), Paragraph(f"<font color='#059669'><b>{estado_str.upper()}</b></font>", value_style)
-        ],
-        [
-            Paragraph("<b>Fecha Atención:</b>", label_style), Paragraph(fecha_atencion_str, value_style),
-            Paragraph("<b>Horario Solicitado:</b>", label_style), Paragraph(horario_str, value_style)
-        ]
-    ]
-
-    t_info_gen = Table(info_gen_data, colWidths=[100, 170, 100, 170])
-    t_info_gen.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#E2E8F0')),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#F1F5F9')),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+    descripcion_solicitud = solicitud.descripcion or 'Sin descripción.'
+    body_ts = Table(
+        [[Paragraph(tipo_servicio, s['valor']),
+          Paragraph(descripcion_solicitud[:280] + ('…' if len(descripcion_solicitud) > 280 else ''), s['cuerpo'])]],
+        colWidths=[160, 380]
+    )
+    body_ts.setStyle(TableStyle([
+        ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+        ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+        ('BACKGROUND',    (0, 0), (-1, -1), colors.white),
+        ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
     ]))
-    elements.append(t_info_gen)
-    elements.append(Spacer(1, 10))
+    el.append(body_ts)
+    el.append(Spacer(1, 8))
 
-    # --- CLIENTE Y TÉCNICO ---
-    elements.append(Paragraph("2. Participantes del Servicio", section_heading))
-
-    cliente_nombre = solicitud.cliente.nombre_completo if solicitud.cliente else '—'
-    cliente_cedula = solicitud.cliente.ncedula if solicitud.cliente else '—'
-    cliente_correo = solicitud.cliente.correo if solicitud.cliente else '—'
-    cliente_telf = solicitud.cliente.numero_telefono if solicitud.cliente else '—'
-    cliente_sector = solicitud.cliente.sector if solicitud.cliente else '—'
-
-    tecnico_nombre = solicitud.tecnico.nombre_completo if solicitud.tecnico else 'No asignado'
-    tecnico_correo = solicitud.tecnico.correo if solicitud.tecnico else '—'
-    tecnico_telf = solicitud.tecnico.numero_telefono if solicitud.tecnico else '—'
-    tecnico_detalle_str = ''
-    if solicitud.tecnico and hasattr(solicitud.tecnico, 'detalles_tecnico') and solicitud.tecnico.detalles_tecnico:
-        carrera = solicitud.tecnico.detalles_tecnico.carrera or ''
-        semestre = f"Semestre {solicitud.tecnico.detalles_tecnico.semestre}" if solicitud.tecnico.detalles_tecnico.semestre else ''
-        tecnico_detalle_str = f"{carrera} ({semestre})".strip(' ()')
-
-    participantes_data = [
-        [
-            Paragraph("<b>DATOS DEL CLIENTE</b>", ParagraphStyle('HeaderCol', parent=label_style, textColor=colors.HexColor('#4338CA'))),
-            Paragraph("<b>DATOS DEL TÉCNICO</b>", ParagraphStyle('HeaderCol2', parent=label_style, textColor=colors.HexColor('#4338CA')))
-        ],
-        [
-            Paragraph(f"<b>Nombre:</b> {cliente_nombre}<br/>"
-                      f"<b>Cédula:</b> {cliente_cedula}<br/>"
-                      f"<b>Correo:</b> {cliente_correo}<br/>"
-                      f"<b>Teléfono:</b> {cliente_telf}<br/>"
-                      f"<b>Sector:</b> {cliente_sector}", value_style),
-            Paragraph(f"<b>Técnico:</b> {tecnico_nombre}<br/>"
-                      f"<b>Correo:</b> {tecnico_correo}<br/>"
-                      f"<b>Teléfono:</b> {tecnico_telf}" +
-                      (f"<br/><b>Especialidad:</b> {tecnico_detalle_str}" if tecnico_detalle_str else ""), value_style)
-        ]
-    ]
-
-    t_part = Table(participantes_data, colWidths=[270, 270])
-    t_part.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EEF2FF')),
-        ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#FFFFFF')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#E2E8F0')),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
-    ]))
-    elements.append(t_part)
-    elements.append(Spacer(1, 10))
-
-    # --- DESCRIPCIÓN DEL PROBLEMA ---
-    elements.append(Paragraph("3. Detalle de la Solicitud y Requerimiento", section_heading))
-    desc_p = Paragraph(solicitud.descripcion or 'Sin descripción proporcionada.', body_text)
-    
-    recursos_p = None
-    if solicitud.recursos_adicionales:
-        recursos_p = Paragraph(f"<b>Recursos adicionales:</b> {solicitud.recursos_adicionales}", value_style)
-
-    prob_cell = [desc_p]
-    if recursos_p:
-        prob_cell.extend([Spacer(1, 4), recursos_p])
-
-    t_prob = Table([[prob_cell]], colWidths=[540])
-    t_prob.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('LEFTPADDING', (0,0), (-1,-1), 10),
-        ('RIGHTPADDING', (0,0), (-1,-1), 10),
-    ]))
-    elements.append(t_prob)
-    elements.append(Spacer(1, 10))
-
-    # --- REPORTE TÉCNICO / DIAGNÓSTICO ---
-    elements.append(Paragraph("4. Informe Técnico y Trabajo Realizado", section_heading))
-    
+    # ─────────────────────────────────────────────────────────────────
+    # DESCRIPCIÓN DE HALLAZGOS Y ACTIVIDADES REALIZADAS
+    # ─────────────────────────────────────────────────────────────────
     if solicitud.reporte:
         rep = solicitud.reporte
-        rep_fecha = rep.fecha_creacion.strftime('%d/%m/%Y %H:%M') if rep.fecha_creacion else '—'
-        diag_p = Paragraph(rep.descripcion_trabajo or 'No se registró descripción del trabajo.', body_text)
-        
-        rep_content = [
-            Paragraph(f"<b>Fecha de registro de informe:</b> {rep_fecha}", label_style),
-            Spacer(1, 4),
-            diag_p
-        ]
+        rep_fecha = rep.fecha_creacion.strftime('%d/%m/%Y') if rep.fecha_creacion else '—'
 
-        t_diag = Table([[rep_content]], colWidths=[540])
-        t_diag.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F0FDF4')),
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#BBF7D0')),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-            ('LEFTPADDING', (0,0), (-1,-1), 10),
-            ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        fecha_col = Table(
+            [[Paragraph('Fecha de la intervención:', s['label']),
+              Paragraph(rep_fecha, s['valor'])],
+             [Paragraph('Descripción de los hallazgos y actividades realizadas', s['label']), '']],
+            colWidths=[180, 360]
+        )
+        fecha_col.setStyle(TableStyle([
+            ('SPAN',          (0, 1), (1, 1)),
+            ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+            ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+            ('BACKGROUND',    (0, 0), (-1, -1), AZUL_CLARO),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+            ('FONTNAME',      (0, 1), (0, 1), 'Helvetica-Bold'),
         ]))
-        elements.append(t_diag)
-        elements.append(Spacer(1, 10))
+        el.append(fecha_col)
 
-        # --- EVIDENCIA FOTOGRÁFICA ---
-        img1_obj = None
-        img2_obj = None
+        desc_trabajo = rep.descripcion_trabajo or 'Sin descripción registrada.'
+        el.append(_text_block(desc_trabajo, s))
+        el.append(Spacer(1, 8))
 
+        # ── Observaciones / Recomendaciones ──────────────────────────
+        el.append(_header_bar('Observaciones / Recomendaciones', s))
+        el.append(Spacer(1, 4))
+
+        recom_text = rep.recomendaciones if rep.recomendaciones else \
+            'No se registraron observaciones adicionales para esta intervención.'
+        el.append(_text_block(recom_text, s, bg=colors.HexColor('#FAFFFE')))
+        el.append(Spacer(1, 8))
+
+        # ── Evidencia fotográfica ─────────────────────────────────────
         static_folder = os.path.join(current_app.root_path, 'static')
+        img1_obj = img2_obj = None
+
+        def _load_img(rel_path, w, h):
+            """Carga una imagen de forma segura; retorna None si falla."""
+            if not rel_path:
+                return None
+            full = os.path.join(static_folder, rel_path.replace('/', os.sep))
+            if not os.path.exists(full):
+                return None
+            try:
+                from PIL import Image as PILImage
+                with open(full, 'rb') as f:
+                    pil_img = PILImage.open(f)
+                    pil_img.verify()          # valida integridad
+                # Re-abrir tras verify (verify cierra el stream)
+                pil_img = PILImage.open(full)
+                # Convertir a RGB si es necesario (evita problemas con PNG/RGBA)
+                if pil_img.mode not in ('RGB', 'L'):
+                    pil_img = pil_img.convert('RGB')
+                import io as _io
+                buf = _io.BytesIO()
+                pil_img.save(buf, format='JPEG', quality=85)
+                buf.seek(0)
+                return Image(buf, width=w, height=h)
+            except Exception as e:
+                current_app.logger.warning(f'PDF: no se pudo cargar imagen {rel_path}: {e}')
+                return None
 
         if rep.imagen_evidencia_1:
-            full_path1 = os.path.join(static_folder, rep.imagen_evidencia_1.replace('/', os.sep))
-            if os.path.exists(full_path1):
-                try:
-                    img1_obj = Image(full_path1, width=2.4*inch, height=1.8*inch)
-                except Exception as e:
-                    current_app.logger.error(f"Error cargando imagen 1 en PDF: {e}")
-
+            img1_obj = _load_img(rep.imagen_evidencia_1, 2.5*inch, 1.9*inch)
         if rep.imagen_evidencia_2:
-            full_path2 = os.path.join(static_folder, rep.imagen_evidencia_2.replace('/', os.sep))
-            if os.path.exists(full_path2):
-                try:
-                    img2_obj = Image(full_path2, width=2.4*inch, height=1.8*inch)
-                except Exception as e:
-                    current_app.logger.error(f"Error cargando imagen 2 en PDF: {e}")
+            img2_obj = _load_img(rep.imagen_evidencia_2, 2.5*inch, 1.9*inch)
 
         if img1_obj or img2_obj:
-            elements.append(Paragraph("5. Evidencia Fotográfica del Servicio", section_heading))
-            
-            cell_1 = [Paragraph("<b>Estado Inicial (Recepción)</b>", label_style), Spacer(1, 4)]
-            if img1_obj:
-                cell_1.append(img1_obj)
-            else:
-                cell_1.append(Paragraph("<i>Imagen no disponible</i>", value_style))
+            if incluir_anexos_firmas:
+                el.append(_header_bar('Anexos (Evidencia Fotográfica)', s))
+            el.append(Spacer(1, 6))
 
-            cell_2 = [Paragraph("<b>Estado Final (Entrega)</b>", label_style), Spacer(1, 4)]
-            if img2_obj:
-                cell_2.append(img2_obj)
-            else:
-                cell_2.append(Paragraph("<i>Imagen no disponible</i>", value_style))
+            cell1 = [[Paragraph('<b>Evidencia 1 — Recepción del equipo</b>', s['label'])],
+                     [img1_obj if img1_obj else Paragraph('<i>Imagen no disponible</i>', s['valor'])]]
+            cell2 = [[Paragraph('<b>Evidencia 2 — Entrega del equipo</b>', s['label'])],
+                     [img2_obj if img2_obj else Paragraph('<i>Imagen no disponible</i>', s['valor'])]]
 
-            t_imgs = Table([[cell_1, cell_2]], colWidths=[270, 270])
-            t_imgs.setStyle(TableStyle([
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#E2E8F0')),
-                ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#F1F5F9')),
-                ('TOPPADDING', (0,0), (-1,-1), 6),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-                ('LEFTPADDING', (0,0), (-1,-1), 8),
-                ('RIGHTPADDING', (0,0), (-1,-1), 8),
-            ]))
-            elements.append(t_imgs)
-            elements.append(Spacer(1, 10))
+            if incluir_anexos_firmas:
+                t_imgs = Table([[
+                    Table(cell1, colWidths=[260]),
+                    Table(cell2, colWidths=[260])
+                ]], colWidths=[270, 270])
+                t_imgs.setStyle(TableStyle([
+                    ('ALIGN',         (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+                    ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+                    ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+                    ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
+                ]))
+                el.append(t_imgs)
+                el.append(Spacer(1, 8))
+
     else:
-        elements.append(Paragraph("<i>Sin informe registrado aún.</i>", value_style))
-        elements.append(Spacer(1, 10))
+        el.append(Paragraph('<i>Informe técnico aún no registrado.</i>', s['valor']))
+        el.append(Spacer(1, 8))
 
-    # --- CALIFICACIÓN DEL CLIENTE ---
+    # ─────────────────────────────────────────────────────────────────
+    # CALIFICACIÓN DEL CLIENTE
+    # ─────────────────────────────────────────────────────────────────
     if solicitud.calificacion:
-        elements.append(Paragraph("6. Conformidad y Calificación del Cliente", section_heading))
+        el.append(_header_bar('Conformidad y Calificación del Cliente', s))
+        el.append(Spacer(1, 4))
         cal = solicitud.calificacion
-        stars_str = "★" * cal.puntuacion + "☆" * (5 - cal.puntuacion)
-        comentario_str = cal.comentario or 'Sin comentarios adicionales.'
-
-        cal_content = [
-            Paragraph(f"<b>Puntuación:</b> <font color='#D97706'><b>{stars_str} ({cal.puntuacion}/5)</b></font>", value_style),
-            Spacer(1, 4),
-            Paragraph(f"<b>Comentario del cliente:</b> <i>\"{comentario_str}\"</i>", value_style)
+        stars = '★' * cal.puntuacion + '☆' * (5 - cal.puntuacion)
+        comentario = cal.comentario or 'Sin comentarios adicionales.'
+        cal_rows = [
+            ['Puntuación:', f'{stars}  ({cal.puntuacion}/5)'],
+            ['Comentario:', comentario],
         ]
-
-        t_cal = Table([[cal_content]], colWidths=[540])
+        t_cal = Table([[Paragraph(r[0], s['label']), Paragraph(r[1], s['valor'])]
+                       for r in cal_rows], colWidths=[100, 440])
         t_cal.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF3C7')),
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#FDE68A')),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-            ('LEFTPADDING', (0,0), (-1,-1), 10),
-            ('RIGHTPADDING', (0,0), (-1,-1), 10),
+            ('BOX',           (0, 0), (-1, -1), 0.8, BORDE),
+            ('INNERGRID',     (0, 0), (-1, -1), 0.4, BORDE),
+            ('BACKGROUND',    (0, 0), (-1, -1), colors.HexColor('#FFFDE7')),
+            ('TOPPADDING',    (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+            ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
         ]))
-        elements.append(t_cal)
-        elements.append(Spacer(1, 15))
+        el.append(t_cal)
+        el.append(Spacer(1, 10))
 
-    # --- PIE DE PÁGINA / FIRMAS ---
-    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#CBD5E1'), spaceBefore=10, spaceAfter=15))
-    
-    firmas_data = [
-        [
-            Paragraph("_____________________________<br/><b>Firma / Conformidad del Cliente</b>", ParagraphStyle('Firma1', parent=value_style, alignment=TA_CENTER)),
-            Paragraph("_____________________________<br/><b>Firma / Técnico Responsable</b>", ParagraphStyle('Firma2', parent=value_style, alignment=TA_CENTER))
-        ]
+    # ─────────────────────────────────────────────────────────────────
+    # FIRMAS — 3 campos: Cliente · Técnico · Aprobado por
+    # ─────────────────────────────────────────────────────────────────
+    if incluir_anexos_firmas:
+        el.append(HRFlowable(width='100%', thickness=1,
+                             color=BORDE, spaceBefore=14, spaceAfter=10))
+
+        tecnico_nombre_f = tecnico.nombre_completo if tecnico else '—'
+        tecnico_cargo    = ''
+        if tecnico and hasattr(tecnico, 'detalles_tecnico') and tecnico.detalles_tecnico:
+            carrera = tecnico.detalles_tecnico.carrera or ''
+            sem     = f'Semestre {tecnico.detalles_tecnico.semestre}' if tecnico.detalles_tecnico.semestre else ''
+            tecnico_cargo = f'Estudiante • {carrera}'.rstrip(' •') if carrera else 'Técnico'
+
+        firmas_data = [[
+            Paragraph(
+                '_______________________<br/>'
+                f'<b>{tecnico_nombre_f}</b><br/>'
+                f'{tecnico_cargo or "Técnico Asignado"}<br/>'
+                '<font color="#888888" size="7">Técnico Asignado</font>',
+                s['firma_label']),
+            Paragraph(
+                '_______________________<br/>'
+                '<b>Ing. ________________________</b><br/>'
+                'Coordinador del Servicio Técnico<br/>'
+                '<font color="#888888" size="7">Revisado por</font>',
+                s['firma_label']),
+            Paragraph(
+                '_______________________<br/>'
+                '<b>Ing. ________________________</b><br/>'
+                'Director / Jefe de Área<br/>'
+                '<font color="#888888" size="7">Aprobado por</font>',
+                s['firma_label']),
+        ]]
+
+        t_firmas = Table(firmas_data, colWidths=[180, 180, 180])
+        t_firmas.setStyle(TableStyle([
+            ('ALIGN',   (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN',  (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        el.append(KeepTogether([t_firmas]))
+        el.append(Spacer(1, 8))
+
+    # Pie de página
+    el.append(HRFlowable(width='100%', thickness=0.5,
+                         color=BORDE, spaceBefore=4, spaceAfter=4))
+    el.append(Paragraph(
+        f'Documento generado por SAST — Sistema de Agendamiento de Servicio Técnico  |  '
+        f'Universidad Técnica de Manabí  |  {fecha_emision}',
+        s['pie']))
+
+    # Construir PDF
+    doc.build(el)
+    buffer.seek(0)
+    return buffer
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPROBANTE DE SERVICIO — versión cliente (sin imágenes ni firmas)
+# ─────────────────────────────────────────────────────────────────────────────
+def generar_pdf_cliente(solicitud):
+    """
+    Genera un COMPROBANTE DE SERVICIO simplificado para el cliente.
+    No incluye imágenes de evidencia ni bloque de firmas institucionales.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=40, rightMargin=40,
+        topMargin=40,  bottomMargin=50
+    )
+
+    s  = _styles()
+    el = []
+    fecha_emision = datetime.now().strftime('%d/%m/%Y  %H:%M')
+
+    # ── Encabezado institucional ──────────────────────────────────────────────
+    logo_path = os.path.join(current_app.root_path, 'static', 'img', 'utm_logo.png')
+    logo_cell = []
+    if os.path.exists(logo_path):
+        try:
+            logo_cell = [Image(logo_path, width=1.0*inch, height=1.0*inch)]
+        except Exception:
+            logo_cell = [Paragraph('', s['subtitulo'])]
+    else:
+        logo_cell = [Paragraph('', s['subtitulo'])]
+
+    titulo_cell = [
+        Paragraph('UNIVERSIDAD TÉCNICA DE MANABÍ', ParagraphStyle(
+            'UTMc', fontName='Helvetica-Bold', fontSize=11,
+            textColor=AZUL_UTM, alignment=TA_CENTER, leading=14)),
+        Paragraph('Facultad de Ciencias Informáticas', ParagraphStyle(
+            'Facc', fontName='Helvetica', fontSize=8.5,
+            textColor=GRIS_TEXT, alignment=TA_CENTER, leading=12)),
+        Spacer(1, 4),
+        Paragraph('COMPROBANTE DE SERVICIO TÉCNICO', ParagraphStyle(
+            'CTitle', fontName='Helvetica-Bold', fontSize=12,
+            textColor=NEGRO, alignment=TA_CENTER, leading=16)),
     ]
-    t_firmas = Table(firmas_data, colWidths=[270, 270])
-    t_firmas.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elements.append(KeepTogether([t_firmas]))
 
-    doc.build(elements)
+    codigo_cell = [
+        Paragraph(f'N° <b>{solicitud.id_solicitud:04d}</b>',
+                  ParagraphStyle('CodC', fontName='Helvetica-Bold', fontSize=10,
+                                 textColor=AZUL_UTM, alignment=TA_RIGHT)),
+        Paragraph(f'Emisión: {fecha_emision}',
+                  ParagraphStyle('FechaC', fontSize=7.5,
+                                 textColor=GRIS_TEXT, alignment=TA_RIGHT)),
+    ]
+
+    ht = Table([[logo_cell, titulo_cell, codigo_cell]], colWidths=[80, 370, 130])
+    ht.setStyle(TableStyle([
+        ('VALIGN',  (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',   (0, 0), (0, 0), 'CENTER'),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    el.append(ht)
+    el.append(HRFlowable(width='100%', thickness=2,
+                         color=AZUL_UTM, spaceBefore=6, spaceAfter=8))
+
+    # ── Datos generales ───────────────────────────────────────────────────────
+    el.append(_header_bar('Información del Servicio', s))
+    el.append(Spacer(1, 4))
+
+    cliente = solicitud.cliente
+    tecnico  = solicitud.tecnico
+    rep      = solicitud.reporte if hasattr(solicitud, 'reporte') else None
+
+    fecha_creacion = solicitud.fecha_creacion.strftime('%d/%m/%Y') if solicitud.fecha_creacion else '—'
+    hora_creacion  = solicitud.fecha_creacion.strftime('%H:%M')    if solicitud.fecha_creacion else '—'
+    fecha_atencion = solicitud.fecha_atencion.strftime('%d/%m/%Y') if solicitud.fecha_atencion else '—'
+    tipo_servicio  = solicitud.tipo_soporte.nombre_soporte         if solicitud.tipo_soporte else '—'
+    sector_cliente = cliente.sector                                 if cliente else '—'
+    nombre_cliente = cliente.nombre_completo                        if cliente else '—'
+    cedula_cliente = cliente.ncedula                                if cliente else '—'
+    tel_cliente    = cliente.numero_telefono                        if cliente else '—'
+    correo_cliente = cliente.correo                                 if cliente else '—'
+    nombre_tecnico = tecnico.nombre_completo                        if tecnico else 'No asignado'
+    estado         = solicitud.estado.nombre_estado                 if solicitud.estado else '—'
+
+    el.append(_info_table([
+        ['Cliente / Solicitante:', nombre_cliente,
+         'Cédula:', cedula_cliente],
+        ['Fecha de Creación:', fecha_creacion,
+         'Hora:', hora_creacion],
+        ['Técnico Asignado:', nombre_tecnico,
+         'Fecha de Atención:', fecha_atencion],
+        ['Tipo de Servicio:', tipo_servicio,
+         'Estado:', estado],
+        ['Sector:', sector_cliente,
+         'Teléfono:', tel_cliente],
+        ['Correo:', correo_cliente,
+         'Horario Solicitado:', solicitud.horario_solicitado or '—'],
+    ], s))
+    el.append(Spacer(1, 8))
+
+    # ── Descripción de la solicitud ───────────────────────────────────────────
+    el.append(_header_bar('Descripción del Problema / Solicitud', s))
+    el.append(Spacer(1, 4))
+    el.append(_text_block(solicitud.descripcion or '—', s))
+    el.append(Spacer(1, 8))
+
+    if solicitud.recursos_adicionales:
+        el.append(_header_bar('Recursos Adicionales Solicitados', s))
+        el.append(Spacer(1, 4))
+        el.append(_text_block(solicitud.recursos_adicionales, s))
+        el.append(Spacer(1, 8))
+
+    # ── Resultados del servicio (si ya fue resuelto) ──────────────────────────
+    if rep:
+        el.append(_header_bar('Resultado del Servicio Realizado', s))
+        el.append(Spacer(1, 4))
+        el.append(_text_block(getattr(rep, 'descripcion_trabajo', None) or '—', s))
+        el.append(Spacer(1, 8))
+
+        if getattr(rep, 'recomendaciones', None):
+            el.append(_header_bar('Observaciones y Recomendaciones', s))
+            el.append(Spacer(1, 4))
+            el.append(_text_block(rep.recomendaciones, s))
+            el.append(Spacer(1, 8))
+
+    # ── Calificación del cliente ──────────────────────────────────────────────
+    cal = getattr(solicitud, 'calificacion', None)
+    if cal:
+        estrellas = '★' * int(cal.puntuacion) + '☆' * (5 - int(cal.puntuacion))
+        el.append(_header_bar('Calificación del Servicio', s))
+        el.append(Spacer(1, 4))
+        bloque_cal = [
+            [Paragraph(f'Puntuación: <b>{cal.puntuacion}/5</b>  {estrellas}', s['valor']),
+             Paragraph(f'Comentario: {cal.comentario or "Sin comentario"}', s['valor'])]
+        ]
+        tc = Table(bloque_cal, colWidths=[180, 360])
+        tc.setStyle(TableStyle([
+            ('BOX',         (0, 0), (-1, -1), 0.7, BORDE),
+            ('INNERGRID',   (0, 0), (-1, -1), 0.4, BORDE),
+            ('BACKGROUND',  (0, 0), (-1, -1), FONDO_CELD),
+            ('TOPPADDING',  (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING',(0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        el.append(tc)
+        el.append(Spacer(1, 10))
+
+    # ── Pie de página ─────────────────────────────────────────────────────────
+    el.append(HRFlowable(width='100%', thickness=0.5,
+                         color=BORDE, spaceBefore=4, spaceAfter=4))
+    el.append(Paragraph(
+        f'Comprobante generado por SAST — Sistema de Agendamiento de Servicio Técnico  |  '
+        f'Universidad Técnica de Manabí  |  {fecha_emision}',
+        s['pie']))
+
+    doc.build(el)
     buffer.seek(0)
     return buffer

@@ -3,8 +3,9 @@ from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import (
     User, Rol, Solicitud, EstadoSolicitud, TipoSoporte,
-    CalificacionTecnico, DetallesTecnico
+    CalificacionTecnico, DetallesTecnico, Mensaje
 )
+from app.models.sector import Sector
 from app import email_service
 from app.pdf_generator import generar_pdf_solicitud
 from functools import wraps
@@ -54,6 +55,15 @@ def dashboard():
             id_estado=estado_pendiente.id_estado
         ).order_by(Solicitud.fecha_creacion.desc()).limit(5).all()
 
+    # Estadísticas por tipo de soporte
+    tipos = TipoSoporte.query.all()
+    stats_por_tipo = []
+    for tipo in tipos:
+        count = Solicitud.query.filter_by(id_tipo_soporte=tipo.id_tipo_soporte).count()
+        if count > 0:
+            stats_por_tipo.append({'nombre': tipo.nombre_soporte, 'total': count})
+    stats_por_tipo.sort(key=lambda x: x['total'], reverse=True)
+
     return render_template(
         'admin/dashboard.html',
         total_solicitudes=total_solicitudes,
@@ -61,7 +71,8 @@ def dashboard():
         total_clientes=total_clientes,
         total_tecnicos=total_tecnicos,
         avg_calificacion=round(float(avg_cal), 1),
-        pendientes_recientes=pendientes_recientes
+        pendientes_recientes=pendientes_recientes,
+        stats_por_tipo=stats_por_tipo
     )
 
 
@@ -159,6 +170,31 @@ def ver_solicitud(solicitud_id):
     solicitud = Solicitud.query.get_or_404(solicitud_id)
     return render_template('admin/ver_solicitud.html', solicitud=solicitud)
 
+
+@admin_bp.route('/solicitudes/<int:solicitud_id>/chat')
+@login_required
+@admin_required
+def chat_solicitud(solicitud_id):
+    """Vista de chat entre Admin y Técnico sobre una solicitud."""
+    solicitud = Solicitud.query.get_or_404(solicitud_id)
+    mensajes = Mensaje.query.filter_by(
+        id_solicitud=solicitud_id,
+        canal='interno'
+    ).order_by(Mensaje.fecha_envio.asc()).all()
+
+    # Marcar mensajes internos no leídos como leídos
+    for msg in mensajes:
+        if msg.id_usuario_remitente != current_user.id_user:
+            msg.leido = True
+    db.session.commit()
+
+    is_closed = solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado']
+    return render_template(
+        'admin/chat_solicitud.html',
+        solicitud=solicitud,
+        mensajes=mensajes,
+        is_closed=is_closed
+    )
 
 @admin_bp.route('/solicitudes/<int:solicitud_id>/pdf')
 @login_required
@@ -282,7 +318,8 @@ def crear_tecnico():
         flash(f'Técnico {user.nombre_completo} creado con éxito.', 'success')
         return redirect(url_for('admin.usuarios'))
 
-    return render_template('admin/crear_tecnico.html')
+    sectores = Sector.query.order_by(Sector.nombre_sector.asc()).all()
+    return render_template('admin/crear_tecnico.html', sectores=sectores)
 
 
 @admin_bp.route('/usuarios/<int:user_id>/desactivar', methods=['POST'])

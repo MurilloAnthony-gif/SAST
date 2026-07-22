@@ -28,13 +28,10 @@
   <!-- ===== KPI STATS ROW ===== -->
   <div class="row g-3 mb-4">
 
-    <!-- Total Solicitudes -->
     <div class="col-12 col-sm-6 col-xl-3">
       <a href="{{ url_for('admin.solicitudes') }}" class="text-decoration-none d-block">
-        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
-          <div class="stat-icon purple">
-            <i class="bi bi-ticket-detailed-fill"></i>
-          </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div class="stat-icon purple"><i class="bi bi-ticket-detailed-fill"></i></div>
           <div style="position:relative;z-index:1;">
             <div class="stat-value">{{ total_solicitudes }}</div>
             <div class="stat-label">Total Solicitudes</div>
@@ -44,13 +41,10 @@
       </a>
     </div>
 
-    <!-- Total Clientes -->
     <div class="col-12 col-sm-6 col-xl-3">
       <a href="{{ url_for('admin.usuarios', rol='solicitante') }}" class="text-decoration-none d-block">
-        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
-          <div class="stat-icon cyan">
-            <i class="bi bi-people-fill"></i>
-          </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div class="stat-icon cyan"><i class="bi bi-people-fill"></i></div>
           <div style="position:relative;z-index:1;">
             <div class="stat-value">{{ total_clientes }}</div>
             <div class="stat-label">Clientes Registrados</div>
@@ -60,13 +54,10 @@
       </a>
     </div>
 
-    <!-- Total Técnicos -->
     <div class="col-12 col-sm-6 col-xl-3">
       <a href="{{ url_for('admin.usuarios', rol='técnico') }}" class="text-decoration-none d-block">
-        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
-          <div class="stat-icon green">
-            <i class="bi bi-tools"></i>
-          </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div class="stat-icon green"><i class="bi bi-tools"></i></div>
           <div style="position:relative;z-index:1;">
             <div class="stat-value">{{ total_tecnicos }}</div>
             <div class="stat-label">Técnicos Activos</div>
@@ -76,13 +67,10 @@
       </a>
     </div>
 
-    <!-- Promedio Calificación -->
     <div class="col-12 col-sm-6 col-xl-3">
       <a href="{{ url_for('admin.solicitudes', estado='Resuelto') }}" class="text-decoration-none d-block">
-        <div class="stat-card" style="cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;">
-          <div class="stat-icon amber">
-            <i class="bi bi-star-fill"></i>
-          </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div class="stat-icon amber"><i class="bi bi-star-fill"></i></div>
           <div style="position:relative;z-index:1;">
             <div class="stat-value d-flex align-items-baseline gap-1">
               {{ avg_calificacion | round(1) if avg_calificacion else '—' }}
@@ -102,79 +90,97 @@
   </div>
   <!-- END KPI ROW -->
 
-  <!-- ===== ESTADO BREAKDOWN ===== -->
-  <div class="section-card mb-4">
-    <div class="section-card-header">
-      <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-pie-chart-fill" style="color:var(--primary-light);"></i>
-        <span class="fw-700" style="font-weight:700;">Distribución por Estado</span>
+  <!-- ===== CHARTS ROW — 50/50 ===== -->
+  <div class="row g-3 mb-4">
+
+    <!-- COLUMNA IZQUIERDA: Donut por Estado -->
+    <div class="col-12 col-lg-6">
+      <div class="section-card h-100">
+        <div class="section-card-header">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-pie-chart-fill" style="color:var(--primary-light);"></i>
+            <span style="font-weight:700;">Distribución por Estado</span>
+          </div>
+          <a href="{{ url_for('admin.solicitudes') }}" class="btn-outline-custom" style="padding:5px 12px;font-size:0.8rem;">
+            Ver todas <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+        <div class="section-card-body">
+          <div class="d-flex align-items-center justify-content-center gap-4 flex-wrap">
+
+            <!-- Donut chart -->
+            <div style="position:relative;width:170px;height:170px;flex-shrink:0;">
+              <canvas id="estadoChart" width="170" height="170"></canvas>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                <div style="font-size:1.8rem;font-weight:800;color:var(--text-primary);line-height:1;">{{ total_solicitudes }}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Total</div>
+              </div>
+            </div>
+
+            <!-- Leyenda clicable -->
+            <div class="d-flex flex-column gap-2">
+              <a href="{{ url_for('admin.solicitudes', estado='Pendiente') }}" class="text-decoration-none d-flex align-items-center gap-3"
+                 style="padding:8px 14px;border-radius:10px;background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.2);transition:.2s;"
+                 onmouseover="this.style.background='rgba(245,158,11,0.18)'" onmouseout="this.style.background='rgba(245,158,11,0.09)'">
+                <span style="width:12px;height:12px;border-radius:50%;background:#f59e0b;flex-shrink:0;"></span>
+                <span style="color:var(--text-secondary);font-size:0.85rem;">Pendiente</span>
+                <span style="font-weight:700;color:#fcd34d;margin-left:auto;">{{ conteo_estados.get('Pendiente', 0) }}</span>
+              </a>
+              <a href="{{ url_for('admin.solicitudes', estado='En proceso') }}" class="text-decoration-none d-flex align-items-center gap-3"
+                 style="padding:8px 14px;border-radius:10px;background:rgba(59,130,246,0.09);border:1px solid rgba(59,130,246,0.2);transition:.2s;"
+                 onmouseover="this.style.background='rgba(59,130,246,0.18)'" onmouseout="this.style.background='rgba(59,130,246,0.09)'">
+                <span style="width:12px;height:12px;border-radius:50%;background:#3b82f6;flex-shrink:0;"></span>
+                <span style="color:var(--text-secondary);font-size:0.85rem;">En Proceso</span>
+                <span style="font-weight:700;color:#93c5fd;margin-left:auto;">{{ conteo_estados.get('En proceso', 0) }}</span>
+              </a>
+              <a href="{{ url_for('admin.solicitudes', estado='Resuelto') }}" class="text-decoration-none d-flex align-items-center gap-3"
+                 style="padding:8px 14px;border-radius:10px;background:rgba(16,185,129,0.09);border:1px solid rgba(16,185,129,0.2);transition:.2s;"
+                 onmouseover="this.style.background='rgba(16,185,129,0.18)'" onmouseout="this.style.background='rgba(16,185,129,0.09)'">
+                <span style="width:12px;height:12px;border-radius:50%;background:#10b981;flex-shrink:0;"></span>
+                <span style="color:var(--text-secondary);font-size:0.85rem;">Resuelto</span>
+                <span style="font-weight:700;color:#6ee7b7;margin-left:auto;">{{ conteo_estados.get('Resuelto', 0) }}</span>
+              </a>
+              <a href="{{ url_for('admin.solicitudes', estado='Cancelado') }}" class="text-decoration-none d-flex align-items-center gap-3"
+                 style="padding:8px 14px;border-radius:10px;background:rgba(239,68,68,0.09);border:1px solid rgba(239,68,68,0.2);transition:.2s;"
+                 onmouseover="this.style.background='rgba(239,68,68,0.18)'" onmouseout="this.style.background='rgba(239,68,68,0.09)'">
+                <span style="width:12px;height:12px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>
+                <span style="color:var(--text-secondary);font-size:0.85rem;">Cancelado</span>
+                <span style="font-weight:700;color:#fca5a5;margin-left:auto;">{{ conteo_estados.get('Cancelado', 0) }}</span>
+              </a>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
-    <div class="section-card-body">
-      <div class="row g-3">
 
-        <!-- Pendiente -->
-        <div class="col-6 col-lg-3">
-          <a href="{{ url_for('admin.solicitudes', estado='Pendiente') }}" class="text-decoration-none d-block">
-            <div class="glass-card p-3 text-center" style="border-color:rgba(245,158,11,0.2);cursor:pointer;transition:transform 0.2s;">
-              <div style="font-size:2rem;font-weight:800;color:#fcd34d;">
-                {{ conteo_estados.get('Pendiente', 0) }}
-              </div>
-              <div class="mt-1">
-                <span class="badge-status status-pendiente">Pendiente</span>
-              </div>
-            </div>
-          </a>
+    <!-- COLUMNA DERECHA: Barras por Tipo -->
+    <div class="col-12 col-lg-6">
+      <div class="section-card h-100">
+        <div class="section-card-header">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill" style="color:var(--secondary);"></i>
+            <span style="font-weight:700;">Solicitudes por Tipo de Servicio</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">— {{ total_solicitudes }} total</span>
+          </div>
         </div>
-
-        <!-- En proceso -->
-        <div class="col-6 col-lg-3">
-          <a href="{{ url_for('admin.solicitudes', estado='En proceso') }}" class="text-decoration-none d-block">
-            <div class="glass-card p-3 text-center" style="border-color:rgba(59,130,246,0.2);cursor:pointer;transition:transform 0.2s;">
-              <div style="font-size:2rem;font-weight:800;color:#93c5fd;">
-                {{ conteo_estados.get('En proceso', 0) }}
-              </div>
-              <div class="mt-1">
-                <span class="badge-status status-en-proceso">En Proceso</span>
-              </div>
-            </div>
-          </a>
+        <div class="section-card-body d-flex align-items-center justify-content-center" style="min-height:220px;">
+          {% if stats_por_tipo %}
+          <canvas id="tipoChart" style="width:100%;max-height:220px;"></canvas>
+          {% else %}
+          <div class="empty-state py-3">
+            <div class="empty-state-icon"><i class="bi bi-bar-chart"></i></div>
+            <p>Sin datos de tipos aún.</p>
+          </div>
+          {% endif %}
         </div>
-
-        <!-- Resuelto -->
-        <div class="col-6 col-lg-3">
-          <a href="{{ url_for('admin.solicitudes', estado='Resuelto') }}" class="text-decoration-none d-block">
-            <div class="glass-card p-3 text-center" style="border-color:rgba(16,185,129,0.2);cursor:pointer;transition:transform 0.2s;">
-              <div style="font-size:2rem;font-weight:800;color:#6ee7b7;">
-                {{ conteo_estados.get('Resuelto', 0) }}
-              </div>
-              <div class="mt-1">
-                <span class="badge-status status-resuelto">Resuelto</span>
-              </div>
-            </div>
-          </a>
-        </div>
-
-        <!-- Cancelado -->
-        <div class="col-6 col-lg-3">
-          <a href="{{ url_for('admin.solicitudes', estado='Cancelado') }}" class="text-decoration-none d-block">
-            <div class="glass-card p-3 text-center" style="border-color:rgba(239,68,68,0.15);cursor:pointer;transition:transform 0.2s;">
-              <div style="font-size:2rem;font-weight:800;color:#fca5a5;">
-                {{ conteo_estados.get('Cancelado', 0) }}
-              </div>
-              <div class="mt-1">
-                <span class="badge-status status-cancelado">Cancelado</span>
-              </div>
-            </div>
-          </a>
-        </div>
-
       </div>
     </div>
+
   </div>
-  <!-- END ESTADO BREAKDOWN -->
+  <!-- END CHARTS ROW -->
 
-  <!-- ===== RECENT PENDING SOLICITUDES ===== -->
+  <!-- ===== SOLICITUDES PENDIENTES RECIENTES ===== -->
   <div class="section-card">
     <div class="section-card-header">
       <div class="d-flex align-items-center gap-2">
@@ -258,7 +264,121 @@
     {% endif %}
 
   </div>
-  <!-- END RECENT PENDING -->
+  <!-- END PENDING TABLE -->
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+/* ── Detectar tema actual ── */
+function getCSSVar(v) {
+    return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+const gridColor  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+const labelColor = isDark ? '#8b949e' : '#2d5e3e';
+
+/* ══ DONUT — Distribución por Estado ══ */
+(function() {
+    const ctx = document.getElementById('estadoChart');
+    if (!ctx) return;
+    const pendiente  = {{ conteo_estados.get('Pendiente',  0) }};
+    const enProceso  = {{ conteo_estados.get('En proceso', 0) }};
+    const resuelto   = {{ conteo_estados.get('Resuelto',   0) }};
+    const cancelado  = {{ conteo_estados.get('Cancelado',  0) }};
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pendiente', 'En Proceso', 'Resuelto', 'Cancelado'],
+            datasets: [{
+                data: [pendiente, enProceso, resuelto, cancelado],
+                backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
+                hoverBackgroundColor: ['#fcd34d', '#93c5fd', '#6ee7b7', '#fca5a5'],
+                borderWidth: 3,
+                borderColor: isDark ? '#1c2128' : '#ffffff',
+                hoverBorderColor: isDark ? '#1c2128' : '#ffffff',
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            cutout: '72%',
+            animation: { animateRotate: true, duration: 900 },
+            plugins: { legend: { display: false }, tooltip: {
+                callbacks: {
+                    label: (ctx) => `  ${ctx.label}: ${ctx.parsed}`
+                }
+            }},
+            responsive: false,
+            maintainAspectRatio: false,
+        }
+    });
+})();
+
+/* ══ BARRAS HORIZONTALES — Tipo de Servicio ══ */
+(function() {
+    const ctx = document.getElementById('tipoChart');
+    if (!ctx) return;
+    const labels = [{% for item in stats_por_tipo %}'{{ item.nombre }}'{% if not loop.last %},{% endif %}{% endfor %}];
+    const data   = [{% for item in stats_por_tipo %}{{ item.total }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+    /* Paleta degradada verde → dorado */
+    const n = labels.length || 1;
+    const colors = labels.map((_, i) => {
+        const t = i / Math.max(n - 1, 1);
+        const r = Math.round(26  + t * (240 - 26));
+        const g = Math.round(140 + t * (180 - 140));
+        const b = Math.round(78  + t * (41  - 78));
+        return `rgba(${r},${g},${b},0.85)`;
+    });
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Solicitudes',
+                data,
+                backgroundColor: colors,
+                borderRadius: 8,
+                borderSkipped: false,
+                barThickness: 22,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 900 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `  ${ctx.parsed.x} solicitudes`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: labelColor, precision: 0 },
+                    border: { display: false },
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: {
+                        color: labelColor,
+                        font: { size: 12 },
+                        maxRotation: 0,
+                    },
+                    border: { display: false },
+                }
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

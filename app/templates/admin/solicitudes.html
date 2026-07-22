@@ -89,6 +89,7 @@
           <tr>
             <th>#ID</th>
             <th>Cliente</th>
+            <th>Ubicación</th>
             <th>Tipo</th>
             <th>Estado</th>
             <th>Técnico Asignado</th>
@@ -115,6 +116,14 @@
                   <div style="font-size:0.72rem;color:var(--text-muted);">CI: {{ sol.cliente.ncedula }}</div>
                 </div>
               </div>
+            </td>
+
+            <!-- Ubicación -->
+            <td>
+              <span style="font-size:0.85rem;color:var(--text-primary);">
+                <i class="bi bi-geo-alt-fill me-1" style="color:var(--primary-light);"></i>
+                {{ sol.cliente.sector or '—' }}
+              </span>
             </td>
 
             <!-- Tipo -->

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SAST — Sistema de Agendamiento de Servicio Técnico universitario. Gestiona tus solicitudes de soporte tecnológico de forma rápida y segura.">
     <title>{% block title %}SAST{% endblock %} — Sistema de Servicio Técnico</title>
+    <!-- Apply saved theme immediately to avoid flash -->
+    <script>(function(){var t=localStorage.getItem('sast-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -105,8 +107,8 @@
                                 <i class="bi bi-star-fill"></i>
                             </div>
                             <div>
-                                <div class="fw-semibold">Solicitud #{{ sol.id_solicitud }} resuelta</div>
-                                <small class="text-muted">¡Califica el servicio recibido!</small>
+                                <div class="notif-title">Solicitud #{{ sol.id_solicitud }} resuelta</div>
+                                <div class="notif-body">¡Califica el servicio recibido!</div>
                             </div>
                         </a>
                     </li>
@@ -114,6 +116,11 @@
                 </ul>
             </div>
             {% endif %}
+
+            <!-- Theme Toggle -->
+            <button id="themeToggle" title="Cambiar tema" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </button>
 
             <!-- User Menu -->
             <div class="dropdown user-menu">
@@ -130,8 +137,8 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end user-dropdown">
                     <li class="dropdown-header">
-                        <strong>{{ current_user.nombre_completo }}</strong>
-                        <div class="text-muted small">{{ current_user.correo }}</div>
+                        <strong style="color:var(--text-primary);font-size:0.9rem;">{{ current_user.nombre_completo }}</strong>
+                        <div style="color:var(--text-secondary);font-size:0.78rem;margin-top:2px;">{{ current_user.correo }}</div>
                     </li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
@@ -216,6 +223,25 @@
     });
 </script>
 {% endif %}
+
+<!-- Theme persistence -->
+<script>
+(function(){
+    const saved = localStorage.getItem('sast-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = saved === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+})();
+function toggleTheme(){
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('sast-theme', next);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = next === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+}
+</script>
 
 {% block extra_js %}{% endblock %}
 </body>

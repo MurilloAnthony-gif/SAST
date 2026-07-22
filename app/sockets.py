@@ -30,9 +30,10 @@ def register_socketio_events(socketio):
                 current_user.es_admin):
             join_room(f'solicitud_{solicitud_id}')
 
-            # Marcar mensajes como leídos
+            # Marcar mensajes del canal público como leídos
             mensajes_no_leidos = Mensaje.query.filter_by(
                 id_solicitud=solicitud_id,
+                canal='publico',
                 leido=False
             ).filter(
                 Mensaje.id_usuario_remitente != current_user.id_user
@@ -50,7 +51,7 @@ def register_socketio_events(socketio):
 
     @socketio.on('send_message')
     def handle_message(data):
-        """Procesa y distribuye un mensaje en el chat."""
+        """Procesa y distribuye un mensaje en el chat público (cliente<->técnico)."""
         solicitud_id = data.get('solicitud_id')
         contenido = data.get('contenido', '').strip()
 
@@ -61,7 +62,7 @@ def register_socketio_events(socketio):
         if not solicitud:
             return
 
-        # Verificar acceso
+        # Verificar acceso (cliente o técnico asignado)
         if (current_user.id_user != solicitud.id_cliente and
                 current_user.id_user != solicitud.id_tecnico and
                 not current_user.es_admin):
@@ -72,18 +73,77 @@ def register_socketio_events(socketio):
             emit('error', {'msg': 'No se puede enviar mensajes en un ticket cerrado.'})
             return
 
-        # Guardar mensaje
+        # Guardar mensaje explícitamente en el canal público
         mensaje = Mensaje(
             id_solicitud=solicitud_id,
             id_usuario_remitente=current_user.id_user,
-            contenido=contenido
+            contenido=contenido,
+            canal='publico'
         )
         db.session.add(mensaje)
         db.session.commit()
 
-        # Emitir a todos en la sala
+        # Emitir a todos en la sala pública
         emit('new_message', mensaje.to_dict(), room=f'solicitud_{solicitud_id}')
 
     @socketio.on('disconnect')
     def handle_disconnect():
         pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # CANAL INTERNO — Admin ↔ Técnico (invisible para el cliente)
+    # ═══════════════════════════════════════════════════════════════
+
+    @socketio.on('join_internal_chat')
+    def handle_join_internal(data):
+        """Admin o Técnico se une al canal interno de una solicitud."""
+        solicitud_id = data.get('solicitud_id')
+        if not solicitud_id:
+            return
+        solicitud = Solicitud.query.get(solicitud_id)
+        if not solicitud:
+            return
+        if (current_user.es_admin or
+                current_user.id_user == solicitud.id_tecnico):
+            join_room(f'interno_{solicitud_id}')
+            Mensaje.query.filter_by(
+                id_solicitud=solicitud_id,
+                canal='interno',
+                leido=False
+            ).filter(
+                Mensaje.id_usuario_remitente != current_user.id_user
+            ).update({'leido': True})
+            db.session.commit()
+
+    @socketio.on('send_internal_message')
+    def handle_internal_message(data):
+        """Procesa y distribuye un mensaje interno (admin<->tecnico)."""
+        solicitud_id = data.get('solicitud_id')
+        contenido = data.get('contenido', '').strip()
+
+        if not solicitud_id or not contenido:
+            return
+
+        solicitud = Solicitud.query.get(solicitud_id)
+        if not solicitud:
+            return
+
+        if not (current_user.es_admin or
+                current_user.id_user == solicitud.id_tecnico):
+            emit('error', {'msg': 'No tienes acceso al canal interno.'})
+            return
+
+        if solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado']:
+            emit('error', {'msg': 'No se puede escribir en un ticket cerrado.'})
+            return
+
+        mensaje = Mensaje(
+            id_solicitud=solicitud_id,
+            id_usuario_remitente=current_user.id_user,
+            contenido=contenido,
+            canal='interno'
+        )
+        db.session.add(mensaje)
+        db.session.commit()
+
+        emit('new_internal_message', mensaje.to_dict(), room=f'interno_{solicitud_id}')

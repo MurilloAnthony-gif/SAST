@@ -55,6 +55,13 @@
       </div>
 
       <div class="detail-row">
+        <div class="detail-label"><i class="bi bi-geo-alt-fill"></i> Ubicación del Problema</div>
+        <div class="detail-value" style="font-weight:600;color:var(--primary-light);">
+          {{ solicitud.cliente.sector or '—' }}
+        </div>
+      </div>
+
+      <div class="detail-row">
         <div class="detail-label"><i class="bi bi-calendar3"></i> Fecha</div>
         <div class="detail-value">{{ solicitud.fecha_creacion.strftime('%d de %B de %Y') if solicitud.fecha_creacion else '—' }}</div>
       </div>
@@ -93,6 +100,7 @@
             <option value="{{ tec.id_user }}"
               {% if solicitud.tecnico and solicitud.tecnico.id_user == tec.id_user %}selected{% endif %}>
               {{ tec.nombre_completo }}
+              {% if tec.sector %} (Ubicación: {{ tec.sector }}){% endif %}
               {% if tec.tecnico_info and tec.tecnico_info.carrera %} — {{ tec.tecnico_info.carrera }}{% endif %}
             </option>
             {% endfor %}

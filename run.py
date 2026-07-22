@@ -6,7 +6,6 @@ app = create_app()
 if __name__ == '__main__':
     print('🚀 Iniciando SAST — Sistema de Agendamiento de Servicio Técnico')
     print('📍 URL: http://127.0.0.1:5000')
-    print('👤 Admin: admin@sast.com / Admin123!')
     print('---')
     socketio.run(
         app,

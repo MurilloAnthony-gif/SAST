@@ -98,8 +98,12 @@
               <label class="form-label" for="sector">
                 <i class="bi bi-geo-alt me-1"></i> Sector / Ubicación
               </label>
-              <input type="text" id="sector" name="sector" class="form-control"
-                     placeholder="Ej: Zona Norte">
+              <select id="sector" name="sector" class="form-select" required>
+                <option value="" disabled selected>Selecciona un sector...</option>
+                {% for s in sectores %}
+                <option value="{{ s.nombre_sector }}">{{ s.nombre_sector }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 
 {% block content %}
 
-{% set is_closed = solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado'] %}
+{# is_closed viene del blueprint #}
 
 {% set estado_css = {
     'Pendiente':  'status-pendiente',
@@ -177,54 +177,7 @@
                 </div>
             </div>
 
-            {# Report section — only if reporte exists #}
-            {% if solicitud.reporte %}
-            <div class="section-card">
-                <div class="section-card-header">
-                    <span class="fw-700" style="color:var(--text-primary);">
-                        <i class="bi bi-file-earmark-check-fill me-2" style="color:var(--success);"></i>
-                        Informe Técnico
-                    </span>
-                    <span class="badge-status status-resuelto" style="font-size:0.7rem;">Enviado</span>
-                </div>
-                <div class="section-card-body">
-
-                    <p style="color:var(--text-secondary);font-size:0.875rem;line-height:1.65;margin-bottom:16px;">
-                        {{ solicitud.reporte.descripcion }}
-                    </p>
-
-                    {% if solicitud.reporte.imagen1 or solicitud.reporte.imagen2 %}
-                    <div class="evidence-grid">
-                        {% if solicitud.reporte.imagen1 %}
-                        <div>
-                            <div style="color:var(--text-muted);font-size:0.72rem;font-weight:600;text-transform:uppercase;
-                                        letter-spacing:0.05em;margin-bottom:6px;">
-                                <i class="bi bi-image me-1"></i>Equipo recibido
-                            </div>
-                            <img src="{{ url_for('static', filename='uploads/' ~ solicitud.reporte.imagen1) }}"
-                                 alt="Evidencia 1 — cómo se recibió el equipo"
-                                 class="evidence-img"
-                                 onclick="window.open(this.src,'_blank')">
-                        </div>
-                        {% endif %}
-                        {% if solicitud.reporte.imagen2 %}
-                        <div>
-                            <div style="color:var(--text-muted);font-size:0.72rem;font-weight:600;text-transform:uppercase;
-                                        letter-spacing:0.05em;margin-bottom:6px;">
-                                <i class="bi bi-image me-1"></i>Equipo entregado
-                            </div>
-                            <img src="{{ url_for('static', filename='uploads/' ~ solicitud.reporte.imagen2) }}"
-                                 alt="Evidencia 2 — cómo se entregó el equipo"
-                                 class="evidence-img"
-                                 onclick="window.open(this.src,'_blank')">
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-
-                </div>
-            </div>
-            {% endif %}
+            {# Report section removed per request #}
 
         </div>
         {# END LEFT #}
@@ -316,10 +269,104 @@
 
             </div>
         </div>
-        {# END RIGHT #}
+        {# END RIGHT — chat público #}
 
     </div>
     {# END ROW #}
+
+    {# ===== PANEL INTERNO: Admin → Técnico ===== #}
+    {% if mensajes_internos or not is_closed %}
+    <div class="section-card mt-4" style="border:1px solid rgba(240,180,41,0.3);">
+        <div class="section-card-header" style="background:rgba(240,180,41,0.07);">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-shield-lock-fill" style="color:var(--secondary);"></i>
+                <span style="font-weight:700;">Mensajes del Administrador</span>
+                <span style="font-size:0.75rem;color:var(--text-muted);">— Solo tú y el administrador pueden ver esto</span>
+            </div>
+            {% if is_closed %}
+            <span class="badge-status status-cancelado" style="font-size:0.72rem;">Cerrado</span>
+            {% endif %}
+        </div>
+        <div class="section-card-body" style="padding:0;">
+
+            <!-- Mensajes internos -->
+            <div id="internalMessages" style="
+                overflow-y:auto;padding:16px 20px;
+                display:flex;flex-direction:column;gap:10px;
+                min-height:120px;max-height:280px;">
+
+                {% if not mensajes_internos %}
+                <div style="text-align:center;color:var(--text-muted);font-size:0.85rem;padding:20px 0;">
+                    <i class="bi bi-shield-lock" style="font-size:1.8rem;opacity:.4;display:block;margin-bottom:8px;"></i>
+                    Sin mensajes internos del administrador.
+                </div>
+                {% endif %}
+
+                {% for msg in mensajes_internos %}
+                {% set es_mio = msg.id_usuario_remitente == current_user.id_user %}
+                <div class="d-flex {% if es_mio %}justify-content-end{% else %}justify-content-start{% endif %} gap-2 align-items-end">
+                    {% if not es_mio %}
+                    <div style="width:28px;height:28px;background:linear-gradient(135deg,#f0b429,#c88f10);border-radius:50%;
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;">
+                        {{ msg.remitente.nombres[0] }}{{ msg.remitente.apellidos[0] }}
+                    </div>
+                    {% endif %}
+                    <div style="max-width:75%;">
+                        {% if not es_mio %}
+                        <div style="font-size:.7rem;color:var(--text-muted);margin-bottom:2px;padding-left:3px;">
+                            {{ msg.remitente.nombre_completo }} · {{ msg.fecha_envio.strftime('%d/%m %H:%M') }}
+                        </div>
+                        {% endif %}
+                        <div style="padding:8px 12px;
+                            border-radius:{% if es_mio %}14px 3px 14px 14px{% else %}3px 14px 14px 14px{% endif %};
+                            {% if es_mio %}
+                                background:linear-gradient(135deg,#c88f10,#f0b429);color:white;
+                            {% else %}
+                                background:rgba(240,180,41,0.12);color:var(--text-primary);border:1px solid rgba(240,180,41,0.25);
+                            {% endif %}
+                            font-size:.85rem;line-height:1.5;word-break:break-word;">
+                            {{ msg.contenido }}
+                        </div>
+                        {% if es_mio %}
+                        <div style="font-size:.68rem;color:var(--text-muted);text-align:right;margin-top:2px;">
+                            {{ msg.fecha_envio.strftime('%d/%m %H:%M') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Input interno -->
+            {% if not is_closed %}
+            <div style="padding:12px 20px;border-top:1px solid rgba(240,180,41,0.2);">
+                <div class="d-flex gap-2 align-items-end">
+                    <textarea id="internalInput" class="form-control"
+                              placeholder="Responder al administrador (privado)..."
+                              rows="1"
+                              style="resize:none;border-radius:10px;font-size:0.85rem;
+                                     border-color:rgba(240,180,41,0.3);"></textarea>
+                    <button id="internalSendBtn"
+                            style="background:linear-gradient(135deg,#c88f10,#f0b429);color:white;
+                                   border:none;cursor:pointer;padding:9px 14px;flex-shrink:0;
+                                   border-radius:10px;font-size:0.95rem;height:fit-content;transition:.2s;"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+                <div style="font-size:0.73rem;color:var(--text-secondary);margin-top:5px;padding-left:3px;">
+                    Presiona <kbd style="background:var(--bg-elevated);border:1px solid var(--border);
+                                        border-radius:4px;padding:1px 5px;color:var(--text-primary);
+                                        font-size:0.68rem;">Enter</kbd> para enviar
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+    {% endif %}
+    {# END INTERNAL PANEL #}
 
 </div>
 {% endblock %}
@@ -327,10 +374,75 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 <script>
+    // Chat público: cliente <-> técnico
     const chat = new SastChat(
         {{ solicitud.id_solicitud }},
         {{ current_user.id_user }},
-        {{ 'true' if solicitud.estado.nombre_estado in ['Resuelto', 'Cancelado'] else 'false' }}
+        {{ 'true' if is_closed else 'false' }}
     );
+
+    // Canal interno: admin <-> técnico
+    (function(){
+        const socket = io();
+        const solicitudId = {{ solicitud.id_solicitud }};
+        const currentUserId = {{ current_user.id_user }};
+        const internalDiv = document.getElementById('internalMessages');
+        const internalInput = document.getElementById('internalInput');
+        const internalBtn  = document.getElementById('internalSendBtn');
+
+        socket.on('connect', () => {
+            socket.emit('join_internal_chat', { solicitud_id: solicitudId });
+        });
+
+        socket.on('new_internal_message', (data) => {
+            appendInternal(data);
+            if (internalDiv) internalDiv.scrollTop = internalDiv.scrollHeight;
+        });
+
+        function sendInternal() {
+            const content = internalInput?.value.trim();
+            if (!content) return;
+            internalBtn.disabled = true;
+            socket.emit('send_internal_message', { solicitud_id: solicitudId, contenido: content });
+            internalInput.value = '';
+            internalInput.style.height = 'auto';
+            setTimeout(() => { internalBtn.disabled = false; }, 500);
+        }
+
+        internalBtn?.addEventListener('click', sendInternal);
+        internalInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendInternal(); }
+        });
+        internalInput?.addEventListener('input', () => {
+            internalInput.style.height = 'auto';
+            internalInput.style.height = Math.min(internalInput.scrollHeight, 80) + 'px';
+        });
+
+        function appendInternal(data) {
+            const isMine = data.id_remitente === currentUserId;
+            const el = document.createElement('div');
+            el.className = `d-flex ${isMine ? 'justify-content-end' : 'justify-content-start'} gap-2 align-items-end`;
+            const initials = data.remitente.split(' ').map(w=>w[0]).slice(0,2).join('');
+            const avatar = isMine ? '' : `
+                <div style="width:28px;height:28px;background:linear-gradient(135deg,#f0b429,#c88f10);
+                            border-radius:50%;display:flex;align-items:center;justify-content:center;
+                            font-size:.65rem;font-weight:700;color:white;flex-shrink:0;">${initials}</div>`;
+            el.innerHTML = `${avatar}
+                <div style="max-width:75%;">
+                    ${!isMine ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:2px;">${data.remitente} · ${data.fecha_envio}</div>` : ''}
+                    <div style="padding:8px 12px;
+                        border-radius:${isMine ? '14px 3px 14px 14px' : '3px 14px 14px 14px'};
+                        ${isMine ? 'background:linear-gradient(135deg,#c88f10,#f0b429);color:white;'
+                                 : 'background:rgba(240,180,41,0.12);color:var(--text-primary);border:1px solid rgba(240,180,41,0.25);'}
+                        font-size:.85rem;line-height:1.5;word-break:break-word;">
+                        ${data.contenido.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+                    </div>
+                    ${isMine ? `<div style="font-size:.68rem;color:var(--text-muted);text-align:right;margin-top:2px;">${data.fecha_envio}</div>` : ''}
+                </div>`;
+            internalDiv?.appendChild(el);
+        }
+
+        if (internalDiv) internalDiv.scrollTop = internalDiv.scrollHeight;
+    })();
 </script>
 {% endblock %}

@@ -29,7 +29,8 @@
 
     <div class="row g-3 mb-4">
         <div class="col-sm-4">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('')" id="btn-all"
+                 style="cursor:pointer;" title="Ver todas">
                 <div class="stat-icon purple">
                     <i class="bi bi-ticket-detailed-fill"></i>
                 </div>
@@ -40,7 +41,8 @@
             </div>
         </div>
         <div class="col-sm-4">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('En proceso')" id="btn-En proceso"
+                 style="cursor:pointer;" title="Ver en proceso">
                 <div class="stat-icon cyan">
                     <i class="bi bi-arrow-repeat"></i>
                 </div>
@@ -51,7 +53,8 @@
             </div>
         </div>
         <div class="col-sm-4">
-            <div class="stat-card">
+            <div class="stat-card stat-btn" onclick="filtrarSolicitudes('Resuelto')" id="btn-Resuelto"
+                 style="cursor:pointer;" title="Ver resueltas">
                 <div class="stat-icon green">
                     <i class="bi bi-check2-circle"></i>
                 </div>
@@ -80,7 +83,7 @@
         {% set unread = sol.mensajes_no_leidos if sol.mensajes_no_leidos is defined else 0 %}
 
         <a href="{{ url_for('tecnico.ver_solicitud', solicitud_id=sol.id_solicitud) }}"
-           class="solicitud-card">
+           class="solicitud-card" data-estado="{{ sol.estado.nombre_estado }}">
             <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
 
                 {# Left: ID + title #}
@@ -162,4 +165,26 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSS_ACTIVE_T = 'box-shadow:0 0 0 2px var(--primary),0 4px 20px var(--primary-glow);border-color:var(--primary)!important;';
+function filtrarSolicitudes(estado) {
+    document.querySelectorAll('.solicitud-card').forEach(c => {
+        const e = c.getAttribute('data-estado') || '';
+        c.style.display = (!estado || e === estado) ? '' : 'none';
+    });
+    document.querySelectorAll('.stat-btn').forEach(b => {
+        b.style.cssText = b.style.cssText.replace(/box-shadow:[^;]+;?/g,'').replace(/border-color:[^;]+!important;?/g,'');
+    });
+    const id = estado ? 'btn-' + estado : 'btn-all';
+    const btn = document.getElementById(id);
+    if (btn) btn.style.cssText += CSS_ACTIVE_T;
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const a = document.getElementById('btn-all');
+    if (a) a.style.cssText += CSS_ACTIVE_T;
+});
+</script>
 {% endblock %}
